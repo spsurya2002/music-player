@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel Audio</title>
+<style>
+  :root {
+    --bg: #0f1015;
+    --card: #191a22;
+    --line: #2a2c38;
+    --text: #edeef3;
+    --muted: #9296a6;
+    --accent: #d6336c;
+    --accent-2: #f76707;
+    --ok: #37b24d;
+    --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: radial-gradient(900px 500px at 50% -10%, #241a2e 0%, var(--bg) 60%);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { width: 100%; max-width: 480px; }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    letter-spacing: -0.4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .row { display: flex; gap: 8px; }
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #12131a;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .hint { margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+  .msg {
+    margin-top: 14px;
+    padding: 11px 13px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    display: none;
+  }
+  .msg.show { display: block; }
+  .msg.err { background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.35); color: var(--err); }
+  .msg.info { background: rgba(255,255,255,.05); border: 1px solid var(--line); color: var(--muted); }
+  .result { margin-top: 16px; display: none; }
+  .result.show { display: block; }
+  .meta { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .art {
+    width: 56px; height: 56px; border-radius: 10px; object-fit: cover;
+    background: #22232d; flex: none;
+  }
+  .title { font-weight: 600; font-size: 15px; word-break: break-word; }
+  .by { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  audio { width: 100%; margin-bottom: 10px; }
+  a.dl {
+    display: block;
+    text-align: center;
+    padding: 11px;
+    border-radius: 10px;
+    background: rgba(55,178,77,.12);
+    border: 1px solid rgba(55,178,77,.4);
+    color: var(--ok);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .spin {
+    width: 14px; height: 14px; display: inline-block; vertical-align: -2px;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    border-radius: 50%; animation: s .7s linear infinite; margin-right: 7px;
+  }
+  @keyframes s { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reel Audio</h1>
+  <p class="sub">Paste an Instagram reel or post link — get the audio as MP3.</p>
+
+  <div class="card">
+    <form class="row" id="form">
+      <input id="url" type="url" placeholder="https://www.instagram.com/reel/..." autocomplete="off" required>
+      <button id="go" type="submit">Extract</button>
+    </form>
+    <div class="hint">Works with reels, posts and IGTV. Private posts need cookies — see the README.</div>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="result" id="result">
+      <div class="meta">
+        <img class="art" id="art" alt="" hidden>
+        <div>
+          <div class="title" id="title"></div>
+          <div class="by" id="by"></div>
+        </div>
+      </div>
+      <audio id="audio" controls preload="metadata"></audio>
+      <a class="dl" id="dl" download>Download MP3</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const form = $('form'), go = $('go'), msg = $('msg'), result = $('result');
+
+function show(el, kind, text) {
+  el.className = 'msg show ' + kind;
+  el.textContent = text;
+}
+function hide(el) { el.className = 'msg'; }
+
+function fmtSize(b) {
+  return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+}
+function fmtDur(s) {
+  if (!s) return '';
+  const m = Math.floor(s / 60), sec = Math.round(s % 60);
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const url = $('url').value.trim();
+  if (!url) return;
+
+  go.disabled = true;
+  go.innerHTML = '<span class="spin"></span>Working';
+  result.classList.remove('show');
+  show(msg, 'info', 'Fetching the post and pulling the audio out…');
+
+  try {
+    const r = await fetch('/api/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await r.json();
+
+    if (!r.ok) { show(msg, 'err', data.error || 'Something went wrong.'); return; }
+
+    hide(msg);
+    $('title').textContent = data.track || data.title || data.filename;
+    const bits = [data.artist || data.uploader, fmtDur(data.duration), fmtSize(data.size)].filter(Boolean);
+    $('by').textContent = bits.join(' · ');
+
+    const art = $('art');
+    if (data.thumbnail) { art.src = data.thumbnail; art.hidden = false; }
+    else { art.hidden = true; }
+
+    $('audio').src = '/api/file/' + data.token;
+    const dl = $('dl');
+    dl.href = '/api/file/' + data.token + '?dl=1';
+    dl.setAttribute('download', data.filename);
+    dl.textContent = 'Download  ' + data.filename;
+    result.classList.add('show');
+  } catch (err) {
+    show(msg, 'err', 'Could not reach the server — is it still running?');
+  } finally {
+    go.disabled = false;
+    go.textContent = 'Extract';
+  }
+});
+</script>
+</body>
+</html>
