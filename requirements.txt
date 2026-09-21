@@ -1,2 +1,18 @@
 flask>=3.0
 yt-dlp>=2025.1.1
+shazamio>=0.8
+secretstorage>=3.3 ; sys_platform == "linux"
+fastapi>=0.115
+uvicorn[standard]>=0.30
+motor>=3.5
+pydantic>=2.7
+python-multipart>=0.0.9
+mutagen>=1.47
+
+# Tiers 2 and 4 of MP3 to link. Both are import-guarded, so a missing one is a
+# silently weaker result rather than an error — which is exactly why they belong
+# in the default install: the lyrics tier is the only one that matches a cover,
+# and without it the feature quietly stops being worth having.
+# faster-whisper downloads ~1 GB of model on its first run.
+faster-whisper>=1.0
+pyacoustid>=1.3         # only does anything when ACOUSTID_API_KEY is also set

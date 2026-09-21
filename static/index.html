@@ -103,6 +103,30 @@
     font-weight: 600;
     font-size: 14px;
   }
+  .matches { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: none; }
+  .matches.show { display: block; }
+  .mhead { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 10px; }
+  .song {
+    font-size: 13.5px; margin-bottom: 12px; padding: 9px 11px; border-radius: 9px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  }
+  .song b { color: var(--text); }
+  .song .via { color: var(--muted); font-size: 12px; display: block; margin-top: 3px; }
+  .yt {
+    display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 10px;
+    text-decoration: none; color: inherit; border: 1px solid transparent;
+  }
+  .yt:hover { background: rgba(255,255,255,.05); border-color: var(--line); }
+  .yt.best { background: rgba(214,51,108,.09); border-color: rgba(214,51,108,.35); }
+  .yt img { width: 68px; height: 38px; border-radius: 6px; object-fit: cover; flex: none; background: #22232d; }
+  .yt .t { font-size: 13px; font-weight: 500; line-height: 1.35; }
+  .yt .c { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .badge {
+    flex: none; font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 20px;
+    background: rgba(55,178,77,.15); color: var(--ok);
+  }
+  .badge.mid { background: rgba(247,103,7,.15); color: var(--accent-2); }
+  .badge.low { background: rgba(255,255,255,.07); color: var(--muted); }
   .spin {
     width: 14px; height: 14px; display: inline-block; vertical-align: -2px;
     border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
@@ -135,6 +159,16 @@
       </div>
       <audio id="audio" controls preload="metadata"></audio>
       <a class="dl" id="dl" download>Download MP3</a>
+
+      <div class="matches" id="matches">
+        <div class="mhead" id="mhead">Finding the full song…</div>
+        <div id="song"></div>
+        <div id="ytlist"></div>
+        <form class="row" id="sform" style="margin-top:12px">
+          <input id="q" type="text" placeholder="Search by song name or a line you caught…" autocomplete="off">
+          <button id="sgo" type="submit" style="background:rgba(255,255,255,.08)">Search</button>
+        </form>
+      </div>
     </div>
   </div>
 </div>
@@ -157,6 +191,79 @@ function fmtDur(s) {
   const m = Math.floor(s / 60), sec = Math.round(s % 60);
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
+
+function badgeClass(score) {
+  return score >= 70 ? '' : score >= 45 ? ' mid' : ' low';
+}
+
+async function findSong(token) {
+  const box = $('matches'), head = $('mhead'), song = $('song'), list = $('ytlist');
+  box.classList.add('show');
+  head.textContent = 'Finding the full song…';
+  song.innerHTML = '';
+  list.innerHTML = '';
+
+  let data;
+  try {
+    const r = await fetch('/api/match/' + token, { method: 'POST' });
+    data = await r.json();
+  } catch { data = { identified: false, reason: 'Song lookup failed.' }; }
+
+  if (!data.identified) {
+    head.textContent = 'Song';
+    song.innerHTML = `<div class="song" style="color:var(--muted)">${data.reason || 'Not identified.'}</div>`;
+    return;
+  }
+
+  const s = data.song;
+  head.textContent = 'Song · tap a result to open on YouTube';
+  song.innerHTML = `<div class="song"><b>${s.track}</b>${s.artist ? ' — ' + s.artist : ''}
+    <span class="via">identified via ${s.source}${s.shazam_url ? ` · <a href="${s.shazam_url}" target="_blank" rel="noopener" style="color:var(--muted)">Shazam</a>` : ''}</span></div>`;
+
+  if (!data.results.length) {
+    list.innerHTML = `<div class="song" style="color:var(--muted)">No YouTube results came back — try searching the name above.</div>`;
+    return;
+  }
+
+  renderYT(list, data.results);
+}
+
+function renderYT(list, results) {
+  list.innerHTML = results.map((v, i) => `
+    <a class="yt${i === 0 ? ' best' : ''}" href="${v.url}" target="_blank" rel="noopener">
+      <img src="${v.thumbnail}" alt="">
+      <div style="flex:1;min-width:0">
+        <div class="t">${v.title}</div>
+        <div class="c">${v.channel}${v.duration ? ' · ' + fmtDur(v.duration) : ''}</div>
+      </div>
+      <span class="badge${i === 0 ? '' : badgeClass(v.score)}">${i === 0 ? 'BEST' : v.score + '%'}</span>
+    </a>`).join('');
+}
+
+$('sform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = $('q').value.trim();
+  if (!q) return;
+  const sgo = $('sgo'), list = $('ytlist');
+  sgo.disabled = true;
+  sgo.innerHTML = '<span class="spin"></span>';
+  try {
+    const r = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q })
+    });
+    const d = await r.json();
+    $('song').innerHTML = `<div class="song">Results for <b>${q}</b></div>`;
+    if (d.results && d.results.length) renderYT(list, d.results);
+    else list.innerHTML = `<div class="song" style="color:var(--muted)">Nothing came back for that.</div>`;
+  } catch {
+    list.innerHTML = `<div class="song" style="color:var(--muted)">Search failed — is the server still running?</div>`;
+  } finally {
+    sgo.disabled = false;
+    sgo.textContent = 'Search';
+  }
+});
 
 form.addEventListener('submit', async e => {
   e.preventDefault();
@@ -193,6 +300,7 @@ form.addEventListener('submit', async e => {
     dl.setAttribute('download', data.filename);
     dl.textContent = 'Download  ' + data.filename;
     result.classList.add('show');
+    findSong(data.token);
   } catch (err) {
     show(msg, 'err', 'Could not reach the server — is it still running?');
   } finally {

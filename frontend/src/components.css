@@ -1,0 +1,324 @@
+/* Shared v1-style primitives — carried over verbatim, reused everywhere. */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+input[type="text"],
+input[type="url"],
+input[type="search"],
+textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+input[type="text"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--text);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.btn {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.btn.danger {
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: var(--err);
+}
+.btn.small {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 9px;
+}
+
+.icon-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  flex: none;
+}
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.icon-btn.active {
+  color: var(--accent);
+}
+
+.hint {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.msg {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.msg.err {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: var(--err);
+}
+.msg.info {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.msg.ok {
+  background: rgba(55, 178, 77, 0.1);
+  border: 1px solid rgba(55, 178, 77, 0.35);
+  color: var(--ok);
+}
+
+.badge {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 20px;
+  background: rgba(55, 178, 77, 0.15);
+  color: var(--ok);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.badge.mid {
+  background: rgba(247, 103, 7, 0.15);
+  color: var(--accent-2);
+}
+.badge.low {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+}
+
+/* Where a song came from. Same pill ladder as .badge, but a tinted surface
+   rather than a score colour — it states a fact, it doesn't rate anything. */
+.source-tag {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+  cursor: default;
+}
+.source-tag.insta {
+  background: rgba(214, 51, 108, 0.12);
+  border-color: rgba(214, 51, 108, 0.35);
+  color: var(--accent);
+}
+.source-tag.mp3 {
+  background: rgba(247, 103, 7, 0.12);
+  border-color: rgba(247, 103, 7, 0.35);
+  color: var(--accent-2);
+}
+
+.spin {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  vertical-align: -2px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 7px;
+  flex: none;
+}
+.btn.secondary .spin,
+.btn.ghost .spin {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: var(--text);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.song {
+  font-size: 13.5px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.song:last-child {
+  margin-bottom: 0;
+}
+.song b {
+  color: var(--text);
+}
+.song .via {
+  color: var(--muted);
+  font-size: 12px;
+  display: block;
+  margin-top: 3px;
+}
+
+/* YouTube result row — used in Search matches and refresh lists */
+.yt {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.yt:hover {
+  background: var(--hover);
+  border-color: var(--line);
+}
+.yt.best {
+  background: rgba(214, 51, 108, 0.09);
+  border-color: rgba(214, 51, 108, 0.35);
+}
+.yt img {
+  width: 68px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: none;
+  background: var(--placeholder);
+}
+.yt .t {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.yt .c {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.yt .body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mhead {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.pill {
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+}
+.pill.active {
+  background: rgba(214, 51, 108, 0.12);
+  border-color: rgba(214, 51, 108, 0.35);
+  color: var(--accent);
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.page-title {
+  font-size: 26px;
+  letter-spacing: -0.4px;
+  margin: 0 0 6px;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sub {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ext-link {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ext-link:hover {
+  color: var(--text);
+}

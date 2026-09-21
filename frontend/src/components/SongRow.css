@@ -1,0 +1,151 @@
+.song-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.song-row:hover {
+  background: var(--hover);
+}
+
+.song-row-index {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.song-row-index .idx {
+  font-size: 13px;
+}
+.song-row-index .ico {
+  display: none;
+  color: var(--text);
+}
+.song-row:hover .song-row-index .idx {
+  display: none;
+}
+.song-row:hover .song-row-index .ico {
+  display: flex;
+}
+.song-row.active .song-row-index .idx {
+  display: none;
+}
+.song-row.active .song-row-index .ico {
+  display: flex;
+  color: var(--accent);
+}
+
+.song-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  color: inherit;
+}
+
+.song-row-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--placeholder);
+  flex: none;
+}
+
+.song-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.song-row-title {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-row.active .song-row-title {
+  color: var(--accent);
+}
+
+.song-row-artist {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-row-duration {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 36px;
+  text-align: right;
+}
+
+.song-row-menu {
+  position: relative;
+  flex: none;
+}
+
+.song-row-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 168px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.song-row-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  text-align: left;
+}
+.song-row-dropdown button:hover {
+  background: var(--hover);
+}
+.song-row-dropdown button.danger {
+  color: var(--err);
+}
+
+@media (max-width: 480px) {
+  .song-row-artist {
+    display: none;
+  }
+}

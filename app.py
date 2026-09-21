@@ -15,6 +15,8 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
+import identify
+
 BASE_DIR = Path(__file__).parent.resolve()
 DOWNLOAD_DIR = BASE_DIR / "downloads"
 COOKIES_FILE = BASE_DIR / "cookies.txt"
@@ -30,8 +32,8 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 app = Flask(__name__, static_folder=None)
 
-# token -> absolute path, so the download endpoint never takes a path from the client
-_files: dict[str, Path] = {}
+# token -> {path, info}, so the download endpoint never takes a path from the client
+_jobs: dict[str, dict] = {}
 _lock = threading.Lock()
 
 URL_RE = re.compile(
@@ -85,8 +87,126 @@ def ydl_opts(outtmpl: str) -> dict:
     if COOKIES_FILE.exists():
         opts["cookiefile"] = str(COOKIES_FILE)
     elif COOKIES_BROWSER:
-        opts["cookiesfrombrowser"] = (COOKIES_BROWSER,)
+        browser, profile, _ = browser_session()
+        if browser:
+            opts["cookiesfrombrowser"] = (browser, profile, None, None)
     return opts
+
+
+# Where Chrome-family browsers keep their profile folders
+CHROME_ROOTS = {
+    "chrome": "~/.config/google-chrome",
+    "chromium": "~/.config/chromium",
+    "brave": "~/.config/BraveSoftware/Brave-Browser",
+    "edge": "~/.config/microsoft-edge",
+}
+
+_resolved: dict = {}
+
+
+class _Quiet:
+    """yt-dlp wants a logger; cookie extraction is noisy and none of it is ours."""
+
+    def debug(self, *a, **k): pass
+    def info(self, *a, **k): pass
+    def warning(self, *a, **k): pass
+    def error(self, *a, **k): pass
+
+
+def _extract(browser: str, profile: str | None):
+    from yt_dlp.cookies import extract_cookies_from_browser
+
+    try:
+        return extract_cookies_from_browser(browser, profile=profile, logger=_Quiet())
+    except Exception:
+        return None
+
+
+def _has_session(jar) -> bool:
+    return bool(jar) and any(
+        c.name == "sessionid" and c.value and "instagram" in (c.domain or "")
+        for c in jar
+    )
+
+
+def _profiles_with_instagram(browser: str) -> list[str]:
+    """Profile folders holding instagram.com cookies, newest session first.
+
+    Read without decrypting — this only asks *which* profile to try, and the
+    default profile is often not even the one you're logged in on.
+    """
+    root = Path(CHROME_ROOTS.get(browser, "")).expanduser()
+    if not root.is_dir():
+        return []
+
+    import shutil
+    import sqlite3
+    import tempfile
+
+    found = []
+    for db in root.glob("*/Cookies"):
+        tmp = Path(tempfile.gettempdir()) / f"ck-{os.getpid()}-{db.parent.name}.sqlite"
+        try:
+            shutil.copy(db, tmp)  # the live DB is locked while the browser runs
+            con = sqlite3.connect(tmp)
+            n = con.execute(
+                "SELECT COUNT(*) FROM cookies WHERE host_key LIKE '%instagram%'"
+            ).fetchone()[0]
+            con.close()
+            if n:
+                found.append((db.stat().st_mtime, db.parent.name))
+        except Exception:
+            continue
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    return [name for _, name in sorted(found, reverse=True)]
+
+
+def browser_session():
+    """(browser, profile, cookiejar) for the browser profile that's logged in.
+
+    Resolved once and cached. Auto-detecting the profile matters because Chrome
+    numbers them per account — a plain "chrome" looks at a Default folder that
+    may not exist.
+    """
+    if "session" in _resolved:
+        return _resolved["session"]
+
+    browser, _, profile = COOKIES_BROWSER.partition(":")
+    browser, profile = browser.strip().lower(), profile.strip() or None
+    result = (None, None, None)
+
+    if browser:
+        jar = _extract(browser, profile)
+        if profile or _has_session(jar):
+            result = (browser, profile, jar)
+        else:
+            for name in _profiles_with_instagram(browser):
+                jar = _extract(browser, name)
+                if _has_session(jar):
+                    print(f"  using {browser} profile: {name}")
+                    result = (browser, name, jar)
+                    break
+            else:
+                result = (browser, profile, jar)
+
+    _resolved["session"] = result
+    return result
+
+
+def cookiejar():
+    """Whatever session we have, as a plain cookiejar the IG API call can use."""
+    import http.cookiejar
+
+    if COOKIES_FILE.exists():
+        jar = http.cookiejar.MozillaCookieJar(str(COOKIES_FILE))
+        try:
+            jar.load(ignore_discard=True, ignore_expires=True)
+            return jar
+        except Exception:
+            return None
+    return browser_session()[2]
 
 
 def friendly_error(msg: str) -> str:
@@ -149,7 +269,7 @@ def extract():
 
     token = uuid.uuid4().hex
     with _lock:
-        _files[token] = final
+        _jobs[token] = {"path": final, "info": info, "url": url}
 
     return jsonify(
         token=token,
@@ -164,10 +284,52 @@ def extract():
     )
 
 
+@app.post("/api/match/<token>")
+def match(token):
+    """Name the song, then point at it on YouTube."""
+    with _lock:
+        job = _jobs.get(token)
+    if not job:
+        return jsonify(error="That extraction has expired — run it again."), 404
+
+    song = identify.identify(
+        job["info"], job["path"], url=job.get("url", ""), cookiejar=cookiejar()
+    )
+    if not song or not song.get("track"):
+        hint = (
+            "No music sticker on the post, and the audio matched nothing. If someone "
+            "is singing or playing the song themselves, fingerprinting can't match it "
+            "— it only recognises the original recording. Search for it by name below."
+        )
+        if not COOKIES_FILE.exists() and not COOKIES_BROWSER:
+            hint += (
+                " Setting up cookies would also let the app read Instagram's own music "
+                "sticker, which names the song outright (see the README)."
+            )
+        return jsonify(identified=False, reason=hint)
+
+    # A caption guess is free text, not a known song name — search it as such
+    if song.get("confidence") == "low":
+        results = identify.search_query(song["track"])
+    else:
+        results = identify.find_on_youtube(song["track"], song.get("artist", ""))
+    return jsonify(identified=True, song=song, results=results)
+
+
+@app.post("/api/search")
+def search():
+    """Manual lookup, for when the app can't name the song but you can."""
+    q = (request.json or {}).get("q", "").strip()
+    if not q:
+        return jsonify(error="Type something to search for."), 400
+    return jsonify(results=identify.search_query(q))
+
+
 @app.get("/api/file/<token>")
 def get_file(token):
     with _lock:
-        path = _files.get(token)
+        job = _jobs.get(token)
+    path = job["path"] if job else None
     if not path or not path.exists():
         return jsonify(error="That file has expired — extract it again."), 404
     as_attachment = request.args.get("dl") == "1"
