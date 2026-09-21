@@ -8,6 +8,7 @@ backend.services.file_identify and is not re-implemented or tuned here — this
 module only moves bytes and shapes the answer for the client.
 """
 
+import asyncio
 import mimetypes
 import uuid
 from pathlib import Path
@@ -17,7 +18,9 @@ from fastapi.responses import FileResponse
 
 from backend import errors
 from backend.config import MAX_UPLOAD_BYTES, UPLOAD_DIR
+from backend.models import SearchRequest
 from backend.services import ident_jobs
+from backend.services import identify as identify_service
 
 router = APIRouter(tags=["identify"])
 
@@ -75,8 +78,26 @@ async def identify_status(job_id: str):
         "file": job["file"],
         "log": job["log"],
         "error": job["error"],
-        "result": ident_jobs.shape(job["result"]),
+        "result": job["result"],
     }
+
+
+@router.post("/identify/{job_id}/search")
+async def identify_search(job_id: str, body: SearchRequest):
+    """Overrule the tiers by hand. Identification is probabilistic — a caption
+    can name the wrong thing and a cover can defeat every fingerprint — so the
+    page needs a two-second correction that the save then picks up."""
+    job = ident_jobs.get(job_id)
+    if not job:
+        raise errors.AppError(errors.MISSING_JOB, 404)
+
+    q = (body.q or "").strip()
+    if not q:
+        raise errors.AppError("Type something to search for.", 400)
+
+    results = await asyncio.to_thread(identify_service.search_query, q)
+    result = ident_jobs.set_results(job_id, q, results)
+    return {"result": result}
 
 
 @router.get("/identify/{job_id}/audio")

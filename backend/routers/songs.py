@@ -186,35 +186,26 @@ async def _save_upload(job_id: str, playlist_id: str | None):
             },
         )
 
-    result = ident_jobs.shape(job["result"]) or {}
+    result = job["result"] or {}
     identified_track = result.get("track") or {}
     track = identified_track.get("title")
     artist = identified_track.get("artist")
-    yt_title = result.get("title")
-    vid = result.get("video_id")
+    # Already ranked and in YouTubeMatch shape, so the song page renders them the
+    # same way it renders a reel's matches.
+    youtube = result.get("results") or []
+    top_title = youtube[0]["title"] if youtube else None
 
     if track and artist:
         title = f"{artist} - {track}"
+    elif track:
+        title = track
+    elif youtube and not result.get("guess"):
+        # The audio led here, so what YouTube calls it is the best name going.
+        # A caption guess doesn't earn that — naming the song after a video the
+        # guess turned up would launder the guess into a fact.
+        title = top_title
     else:
-        # Nothing fingerprinted, so the best name available is what YouTube calls
-        # it; failing that, the filename. Both are editable afterwards.
-        title = track or yt_title or Path(filename).stem
-
-    # The pipeline resolves exactly one video, not a ranked list. Stored in the
-    # same shape the reel flow uses so the song page renders it unchanged.
-    youtube = []
-    if vid:
-        youtube = [
-            {
-                "id": vid,
-                "url": result["youtube"],
-                "title": yt_title or title,
-                "channel": "",
-                "duration": None,
-                "thumbnail": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg",
-                "score": 100,
-            }
-        ]
+        title = Path(filename).stem
 
     thumbnail = identified_track.get("cover") or (youtube[0]["thumbnail"] if youtube else None)
     duration = await asyncio.to_thread(ident_jobs.duration_of, path)

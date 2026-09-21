@@ -148,6 +148,22 @@ missing the tier is skipped **in silence**, and a song that should have matched 
 as "no match found" rather than as an error. If a file identifies in one environment and
 not another, compare what's installed before suspecting the pipeline.
 
+The tiers detect; how far each one is trusted is decided separately, in
+`services/file_match.py`. Two rules earn their keep:
+
+- **A caption is a guess.** The file's tags carry the post's caption, which is free text
+  about anything at all — one file's read "First 10 days of a 30 day program" (an event
+  announcement) and returned a workout video with total confidence, because a caption
+  match also stopped the run before the lyrics tier. Only Instagram's bracketed credit
+  list is trusted outright now; prose is held back, the audio is asked first, and a
+  caption is used as a fallback that says on its face that it's a guess.
+- **Results are ranked, not taken in order.** Candidates go through the same scorer the
+  reel side uses, so an official upload beats a slowed edit or an hour-long loop that
+  happens to share the words. You get five, best first, and can play any of them.
+
+When it still gets it wrong — and it will, identification is probabilistic — there's a
+search box under the results. Type the name and what you pick is what gets saved.
+
 Identification starts the moment you pick a file — there's nothing to configure in
 between. When it finishes, **Save to library** files the song away exactly like a reel:
 same player, same All songs list, taggable into any playlist. The two kinds are told apart

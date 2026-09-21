@@ -96,6 +96,12 @@ export function identifyAudioUrl(jobId) {
   return `${BASE}/identify/${jobId}/audio`;
 }
 
+// Replaces the job's matches with what this search finds, so a save afterwards
+// stores the result you picked rather than the one the tiers guessed.
+export function identifySearch(jobId, q) {
+  return request(`/identify/${jobId}/search`, { method: "POST", body: { q } });
+}
+
 // ---- Songs ------------------------------------------------------------------
 
 // Saves either a reel extraction (token) or an identified upload (job).

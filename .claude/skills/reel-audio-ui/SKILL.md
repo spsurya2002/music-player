@@ -20,7 +20,8 @@ backend/          FastAPI + Motor (async MongoDB). Owns all state.
   streaming.py    Range-request handling for audio
   services/       identify.py (song ID + YouTube ranking), extractor.py (yt-dlp), cookies.py
                   file_identify.py (tiers for an uploaded file — a verbatim port, do not
-                  tune it), ident_jobs.py (runs those jobs, shapes their results)
+                  tune it), file_match.py (how far to trust each tier + ranking),
+                  ident_jobs.py (runs those jobs, holds their results)
   routers/        extract.py, identify.py, songs.py, playlists.py
 frontend/         Vite + React 19, plain JSX, hand-written CSS
   src/theme.css   the tokens — the source of truth for colour
@@ -83,6 +84,13 @@ this file is the orientation.
 - **`youtube/refresh` used to wipe** the links of any song with no track name, which is
   every lyrics match. It now searches `identify_query`, and changes nothing when there's
   nothing to search with.
+- **A caption is not a song name.** It's the post's free text — one file's caption read
+  "First 10 days of a 30 day program" and confidently returned a fitness video, because a
+  caption match also *stopped the run* before the lyrics tier. Prose is held back and used
+  only as a labelled `guess`. Never let a guess badge itself `BEST`.
+- **Never take `ytsearch1:`.** `services/identify.py` ranks candidates (`- Topic`/VEVO up;
+  slowed edits, hour-loops and Shorts down). Both the reel and file flows go through it,
+  so a result is judged the same way wherever it appears.
 - **Saving before identification finishes** loses the YouTube links permanently, because
   match results are cached only against the temp token. The Save button is disabled while
   matching — keep it that way.

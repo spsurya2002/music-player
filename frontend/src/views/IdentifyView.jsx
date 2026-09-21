@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Msg from "../components/Msg";
-import { usePlayer } from "../context/PlayerContext";
-import { FileAudioIcon, YoutubeIcon, ExternalLinkIcon } from "../components/icons";
+import YouTubeResultRow from "../components/YouTubeResultRow";
+import { FileAudioIcon } from "../components/icons";
 import { fmtSize } from "../utils/format";
 import "./views.css";
 
@@ -15,8 +15,6 @@ const POLL_MS = 1500;
 const JOB_KEY = "identify-job";
 
 export default function IdentifyView() {
-  const { openYoutube } = usePlayer();
-
   const [file, setFile] = useState(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +24,10 @@ export default function IdentifyView() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null); // { kind, text, songId }
   const [savedSongId, setSavedSongId] = useState("");
+
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const inputRef = useRef(null);
   const logRef = useRef(null);
@@ -96,6 +98,24 @@ export default function IdentifyView() {
     }
   }, []);
 
+  // Overrules whatever the tiers decided, on the server, so saving afterwards
+  // stores what was picked here.
+  async function handleSearch(e) {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q || !status || searching) return;
+    setSearching(true);
+    setSearchError("");
+    try {
+      const data = await api.identifySearch(status.job, q);
+      setStatus((s) => (s ? { ...s, result: data.result } : s));
+    } catch (err) {
+      setSearchError(err.message || "Search failed.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
   async function handleSave() {
     if (!status || saving) return;
     setSaving(true);
@@ -121,12 +141,14 @@ export default function IdentifyView() {
     setError("");
     setSaveMsg(null);
     setSavedSongId("");
+    setQuery("");
+    setSearchError("");
     if (inputRef.current) inputRef.current.value = "";
   }
 
   const done = status && status.state === "done";
   const result = done ? status.result : null;
-  const found = result && result.youtube;
+  const results = (result && result.results) || [];
 
   // Saving retires the job and its temp file, so the preview moves to the copy
   // that's now in the library rather than pointing at something deleted.
@@ -211,7 +233,21 @@ export default function IdentifyView() {
                 <div className="mhead" style={{ marginTop: 16 }}>
                   Song
                 </div>
-                {result.track ? (
+                {result.source === "manual" ? (
+                  <div className="song">
+                    Showing what you searched for.
+                    <span className="via">"{result.query}"</span>
+                  </div>
+                ) : result.guess ? (
+                  // The caption is someone writing about their post, not about
+                  // the audio. Say so plainly — a guess dressed as a result is
+                  // how a workout video ends up filed as a song.
+                  <div className="song">
+                    <b>A guess, not a match.</b> Nothing in the audio matched, so this comes from
+                    the caption written on the post — which often isn't about the music at all.
+                    <span className="via">Searched YouTube for "{result.query}"</span>
+                  </div>
+                ) : result.track ? (
                   <div className="song">
                     <b>{result.track.title}</b>
                     {result.track.artist ? ` — ${result.track.artist}` : ""}
@@ -248,44 +284,44 @@ export default function IdentifyView() {
                   </div>
                 )}
 
-                {found && (
+                {results.length > 0 && (
                   <>
                     <div className="mhead" style={{ marginTop: 16 }}>
-                      YouTube
+                      {/* Ranked, not YouTube's own order: an official upload beats a
+                          slowed edit or an hour-long loop that happens to match the
+                          words. Tap any of them to play it here. */}
+                      YouTube · tap a result to play it
                     </div>
-                    {result.video_id ? (
-                      <button
-                        type="button"
-                        className="yt best"
-                        onClick={() => openYoutube(result.video_id, result.title || "")}
-                      >
-                        <img
-                          src={`https://i.ytimg.com/vi/${result.video_id}/mqdefault.jpg`}
-                          alt=""
-                          loading="lazy"
-                        />
-                        <div className="body">
-                          <div className="t">{result.title || result.youtube}</div>
-                          <div className="c">Play it here</div>
-                        </div>
-                        <span className="badge">BEST</span>
-                      </button>
-                    ) : (
-                      <a className="insta-link" href={result.youtube} target="_blank" rel="noopener">
-                        <YoutubeIcon size={16} />
-                        <span>{result.title || result.youtube}</span>
-                        <ExternalLinkIcon size={14} />
-                      </a>
-                    )}
+                    {results.map((v, i) => (
+                      <YouTubeResultRow key={v.id + i} video={v} best={i === 0 && !result.guess} />
+                    ))}
                   </>
                 )}
 
-                {result.query && !found && (
+                {result.query && results.length === 0 && (
                   <div className="song">
-                    Found the name but no YouTube result came back for it. Searching "{result.query}"
-                    by hand may still turn it up.
+                    Found something to search for but no YouTube result came back. Try searching by
+                    name below.
                   </div>
                 )}
+
+                {/* The escape hatch. Identification is probabilistic — a cover
+                    defeats every fingerprint and a caption can name anything — so
+                    whatever it decided has to be correctable in two seconds. */}
+                <form className="row" style={{ marginTop: 14 }} onSubmit={handleSearch}>
+                  <input
+                    type="text"
+                    placeholder="Wrong song? Search by name or a line you caught…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    autoComplete="off"
+                    disabled={Boolean(savedSongId)}
+                  />
+                  <button type="submit" className="btn secondary" disabled={searching || Boolean(savedSongId)}>
+                    {searching ? <span className="spin" /> : "Search"}
+                  </button>
+                </form>
+                {searchError && <div className="song">{searchError}</div>}
               </>
             )}
 

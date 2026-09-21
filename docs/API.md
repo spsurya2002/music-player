@@ -92,7 +92,20 @@ Same shape of answer as `/api/match`, from the other direction: instead of an In
 post it takes an audio file, so there is no music sticker to read and no post metadata —
 only the audio. The tiers (Shazam, then AcoustID, the file's own caption tags, and Whisper
 on the lyrics) live in `backend/services/file_identify.py`, ported unchanged from the
-standalone tool, and are not tuned here.
+standalone tool, and are not tuned there.
+
+`backend/services/file_match.py` decides how far to trust each one:
+
+- **A caption is a guess.** The tags carry the post's caption, which is free text about
+  anything — one real file's read "First 10 days of a 30 day program" and confidently
+  returned a fitness video. Only Instagram's bracketed credit list is trusted outright;
+  free prose over six words is held back, the audio is asked first, and the caption is
+  used as a labelled fallback (`"guess": true`, `confidence: "low"`) only if nothing else
+  answers.
+- **Results are ranked, never taken in order.** The tiers resolved a link with
+  `ytsearch1:` — YouTube's first hit, with nothing to stop a slowed edit or an hour-long
+  loop winning. Candidates now go through the same `services/identify.py` ranker the reel
+  flow uses, so both halves of the app judge a result the same way.
 
 The Whisper tier transcribes the whole track on CPU, so a run can last minutes. This flow
 is therefore a **job**, not a request: start it, then poll. Jobs are process memory and
@@ -115,22 +128,32 @@ Poll this (~1.5s) until `state` leaves `running`.
   "log": ["[shazam] Kali Kali Zulfon Ke Nusrat Fateh Ali Khan", "YouTube: https://..."],
   "error": null,
   "result": {
-    "source": "shazam | acoustid | caption | lyrics | null",
+    "source": "shazam | acoustid | caption | lyrics | manual | null",
     "source_label": "audio fingerprint (Shazam)",
+    "confidence": "high | medium | low | null",
+    "guess": false,
     "query": "what was searched for on YouTube",
-    "youtube": "https://www.youtube.com/watch?v=... or null",
-    "title": "the YouTube video's title or null",
-    "video_id": "lsqsggtTZfs or null",
-    "track": {"title": "...", "artist": "...", "cover": "...", "shazam_url": "..."}
+    "track": {"title": "...", "artist": "...", "cover": "...", "shazam_url": "..."},
+    "results": [ YouTubeMatch, ... ]
   }
 }
 ```
 
 `result` is null while running. On `done` it always exists, but every field inside it can
-be null — nothing matching is an ordinary outcome, not an error. `track` is only filled in
-by the Shazam tier. `video_id` is parsed out of `youtube` so the hit can open in the
-embedded player; it's null when the url isn't a watch link, and the UI links out instead.
-`log` is the pipeline's own progress lines, shown verbatim so a long run doesn't look hung.
+be null or empty — nothing matching is an ordinary outcome, not an error. `track` is only
+filled in by the Shazam tier. `results` is ranked best-first, same `YouTubeMatch` shape as
+everywhere else, so the page can offer alternatives instead of one link. **`guess: true`
+means the caption named this, not the audio** — the UI must say so and must not badge the
+top result `BEST`. `log` is the pipeline's own progress lines, shown verbatim so a long
+run doesn't look hung.
+
+### `POST /api/identify/{job}/search`
+Body `{"q": "free text"}`. Runs the same ranked search as `POST /api/search` and
+**replaces the job's `results`** with what it finds, setting `source: "manual"`. Saving
+afterwards stores what the user picked rather than what the tiers guessed — the same
+pattern as `extractor.set_match()` caching a reel's match against its token.
+
+200: `{"result": { …the job's result, updated… }}`
 
 ### `GET /api/identify/{job}/audio`
 The uploaded file back, for playback. Supports Range.

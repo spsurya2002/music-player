@@ -10,19 +10,19 @@ The thread calls asyncio.run() rather than awaiting: the pipeline is async only
 because Shazam is, and driving it off the server's event loop would block every
 other request for the length of a transcription.
 
-The shaping half lives here too, rather than in a router, because two routers
-read these results: /api/identify polls them and /api/songs saves them.
+A job holds the working state for one file until it's saved, so a manual search
+replaces its results in place (set_results) exactly as extractor.set_match caches
+a reel's match against its token. Saving reads whatever the job holds by then.
 """
 
 import asyncio
-import re
 import threading
 import uuid
 from pathlib import Path
 
 from mutagen import File as MutagenFile
 
-from backend.services.file_identify import identify
+from backend.services.file_match import identify
 
 # job id -> {state, log, result, error, file, path}
 _jobs: dict[str, dict] = {}
@@ -76,67 +76,28 @@ def discard(job_id: str) -> None:
         Path(job["path"]).unlink(missing_ok=True)
 
 
-# --------------------------------------------------------------------------
-# reading a finished result
-# --------------------------------------------------------------------------
+def set_results(job_id: str, query: str, results: list[dict]) -> dict | None:
+    """Replace a finished job's matches with the ones a manual search found.
 
-# Which tier named the song, in words a person can read.
-SOURCE_LABELS = {
-    "shazam": "audio fingerprint (Shazam)",
-    "acoustid": "audio fingerprint (AcoustID)",
-    "caption": "the file's own caption tags",
-    "lyrics": "the lyrics, transcribed",
-}
-
-# A fingerprint identifies the exact recording; heard words and stray tags are a
-# good lead, not a certainty. Stored on the song for the same reason the reel
-# flow stores it.
-SOURCE_CONFIDENCE = {
-    "shazam": "high",
-    "acoustid": "high",
-    "caption": "medium",
-    "lyrics": "medium",
-}
-
-YOUTUBE_ID_RE = re.compile(
-    r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/)|youtu\.be/)([\w-]{11})"
-)
-
-
-def video_id(url: str) -> str | None:
-    """The 11-character id, so a hit can open in the embedded player instead of
-    sending the user to youtube.com. Shazam's VIDEO section sometimes hands back
-    an API url rather than a watch link, and that one stays a plain link."""
-    m = YOUTUBE_ID_RE.search(url or "")
-    return m.group(1) if m else None
-
-
-def shape(result: dict | None) -> dict | None:
-    """The pipeline's raw dict carries Shazam's entire track document. Keep the
-    handful of fields the page shows and drop the rest."""
-    if not result:
-        return None
-
-    track = result.get("track") or {}
-    source = result.get("source")
-    out = {
-        "source": source,
-        "source_label": SOURCE_LABELS.get(source),
-        "confidence": SOURCE_CONFIDENCE.get(source),
-        "query": result.get("query"),
-        "youtube": result.get("youtube"),
-        "title": result.get("title"),
-        "video_id": video_id(result.get("youtube") or ""),
-        "track": None,
-    }
-    if track:
-        out["track"] = {
-            "title": track.get("title"),
-            "artist": track.get("subtitle"),
-            "cover": (track.get("images") or {}).get("coverart"),
-            "shazam_url": track.get("url"),
-        }
-    return out
+    The person typing the name knows better than any tier did, so this overwrites
+    rather than appends, and marks the result as searched by hand — saving after
+    it stores what they chose, not what the audio guessed.
+    """
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return None
+        result = dict(job.get("result") or {})
+        result.update(
+            source="manual",
+            source_label="a search you typed",
+            confidence=None,
+            guess=False,
+            query=query,
+            results=results,
+        )
+        job["result"] = result
+        return dict(result)
 
 
 def duration_of(path) -> int | None:
