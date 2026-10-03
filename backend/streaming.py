@@ -37,6 +37,29 @@ def content_disposition(disposition: str, filename: str) -> str:
     )
 
 
+def file_stem(doc: dict) -> str:
+    """What a downloaded MP3 is called: the song, when we know it.
+
+    `title` is fixed at save time from the post ("Uploader - Video by handle"),
+    while the page shows artist and track once they're identified or edited. The
+    file should match what the person saw when they tapped Download.
+    sanitize() drops the characters a filesystem refuses (a "/" in "AC/DC"
+    would otherwise be read as a folder).
+
+    Lives here rather than in a router because both the library's own audio
+    route and the shared one name their downloads the same way.
+    """
+    from backend.services import extractor
+
+    track = (doc.get("track") or "").strip()
+    artist = (doc.get("artist") or "").strip()
+    if track and artist:
+        name = f"{artist} - {track}"
+    else:
+        name = track or doc.get("title") or ""
+    return extractor.sanitize(name, fallback="audio")
+
+
 async def stream_audio(
     request: Request,
     storage: Storage,

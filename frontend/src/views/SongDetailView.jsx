@@ -4,10 +4,12 @@ import * as api from "../api/client";
 import { usePlayer } from "../context/PlayerContext";
 import YouTubeResultRow from "../components/YouTubeResultRow";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
+import QueueButton from "../components/QueueButton";
 import ConfirmModal from "../components/ConfirmModal";
+import LyricsSection from "../components/LyricsSection";
 import Msg from "../components/Msg";
 import SourceTag from "../components/SourceTag";
-import { PlayIcon, PauseIcon, PencilIcon, PlusIcon, TrashIcon, ExternalLinkIcon, RefreshIcon, FileAudioIcon } from "../components/icons";
+import { PlayIcon, PauseIcon, PencilIcon, PlusIcon, TrashIcon, ExternalLinkIcon, RefreshIcon, FileAudioIcon, DownloadIcon } from "../components/icons";
 import { fmtDur, fmtSize, fmtDate, songTitle } from "../utils/format";
 import "./views.css";
 
@@ -174,10 +176,17 @@ export default function SongDetailView() {
                 {isActive && playing ? <PauseIcon size={16} style={{ marginRight: 6 }} /> : <PlayIcon size={16} style={{ marginRight: 6 }} />}
                 {isActive && playing ? "Pause" : "Play"}
               </button>
+              <QueueButton songs={song} />
               <button type="button" className="btn ghost" onClick={() => setAddToPlaylistOpen(true)}>
                 <PlusIcon size={15} style={{ marginRight: 6 }} />
                 Add to playlist
               </button>
+              {/* A link, not a fetch: the browser saves the file itself, named by
+                  the server's Content-Disposition. */}
+              <a className="btn ghost" href={api.songDownloadUrl(song.id)} download>
+                <DownloadIcon size={15} style={{ marginRight: 6 }} />
+                Download MP3
+              </a>
               <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)}>
                 <TrashIcon size={15} style={{ marginRight: 6 }} />
                 Delete
@@ -224,6 +233,8 @@ export default function SongDetailView() {
           </div>
         )}
       </div>
+
+      <LyricsSection song={song} />
 
       {addToPlaylistOpen && <AddToPlaylistModal song={song} onClose={() => setAddToPlaylistOpen(false)} />}
 

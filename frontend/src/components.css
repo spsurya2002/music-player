@@ -57,6 +57,8 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Download is an <a download>, not a button, so the browser handles the file. */
+  text-decoration: none;
 }
 .btn:disabled {
   opacity: 0.55;
@@ -94,6 +96,7 @@ select {
   height: 32px;
   border-radius: 9px;
   flex: none;
+  text-decoration: none;
 }
 .icon-btn:hover {
   background: var(--hover);
@@ -321,4 +324,37 @@ select {
 }
 .ext-link:hover {
   color: var(--text);
+}
+
+/* Profile picture, everywhere one appears. Sized by the caller (28px in the
+   sidebar, 56px on the account page), so only the shape lives here. */
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: var(--placeholder);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-fallback {
+  background: var(--gradient);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+/* ---- phones ---- */
+@media (max-width: 760px) {
+  .page-title {
+    font-size: 23px;
+  }
+  .sub {
+    margin-bottom: 18px;
+    font-size: 13.5px;
+  }
+  .card {
+    padding: 14px;
+  }
 }

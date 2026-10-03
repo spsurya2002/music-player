@@ -32,3 +32,13 @@ export function songTitle(song) {
   if (song.track) return song.track;
   return song.title || "Untitled";
 }
+
+// "Good evening" — by the clock on the device, which is the only clock that
+// matters for a greeting. Used with a first name on the Search view.
+export function greeting(date = new Date()) {
+  const h = date.getHours();
+  if (h < 5) return "Still up";
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}

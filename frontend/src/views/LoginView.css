@@ -1,0 +1,97 @@
+/* The one screen with no sidebar and no player bar, so it centres itself in the
+   window rather than living inside .shell-content. */
+
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.login-word {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 18px;
+}
+
+.login-title {
+  font-size: 26px;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.login-sub {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Google's button is a fixed-width iframe; centring it keeps the card from
+     looking left-weighted at any card width. */
+  align-items: center;
+}
+
+.login-gbtn {
+  min-height: 44px;
+}
+
+.login-busy {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-fine {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 22px 18px;
+  }
+  .login-title {
+    font-size: 22px;
+  }
+}
+
+/* A way out. Signing in is a choice here, not a toll gate, so the screen has to
+   let someone go back to the page that offered it. */
+.login-back {
+  margin: 16px 0 0;
+  font-size: 13px;
+}
+
+.login-back a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-back a:hover {
+  color: var(--text);
+}

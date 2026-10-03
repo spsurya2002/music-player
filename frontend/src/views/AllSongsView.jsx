@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { usePlayer } from "../context/PlayerContext";
 import SongRow from "../components/SongRow";
@@ -17,7 +17,22 @@ const SORTS = [
 ];
 
 export default function AllSongsView() {
-  const [q, setQ] = useState("");
+  // The top bar searches from anywhere and lands here with ?q=, so the URL —
+  // not this component — is where the query lives. That also makes a search
+  // result a link you can send someone or come back to.
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") || "";
+  const setQ = (value) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set("q", value);
+        else next.delete("q");
+        return next;
+      },
+      { replace: true }
+    );
+
   const [sort, setSort] = useState("recent");
   const [songs, setSongs] = useState(null);
   const [error, setError] = useState("");
@@ -26,7 +41,7 @@ export default function AllSongsView() {
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { playQueue, currentSong, playing, togglePlay } = usePlayer();
+  const { playQueue, addToQueue, currentSong, playing, togglePlay } = usePlayer();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -77,7 +92,7 @@ export default function AllSongsView() {
             All songs
           </h1>
           <p className="sub" style={{ margin: 0 }}>
-            Everything you've saved from Instagram.
+            Everything in your library — reels and files you've uploaded.
           </p>
         </div>
         <div className="view-head-controls">
@@ -118,6 +133,7 @@ export default function AllSongsView() {
               playing={playing}
               onPlay={() => handleRowPlay(song, i)}
               onOpen={() => navigate(`/songs/${song.id}`)}
+              onAddToQueue={() => addToQueue(song)}
               onAddToPlaylist={() => setAddToPlaylistSong(song)}
               onDelete={() => setDeleteTarget(song)}
             />

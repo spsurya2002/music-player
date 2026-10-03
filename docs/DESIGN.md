@@ -1,4 +1,4 @@
-# Reel Audio — design system (v2, app shell)
+# Reelody — design system (v2, app shell)
 
 v1 was one centred 480px card. This app is a media library: a sidebar, a scrolling
 content area, a persistent player. The **visual language does not change** — same tokens,
@@ -40,8 +40,15 @@ on the app shell, fixed so it doesn't scroll away.
 ## Accent discipline
 
 The gradient `linear-gradient(90deg, var(--accent), var(--accent-2))` is rationed. It
-appears on: the wordmark, the primary button, and the player's progress fill. Nothing
+appears on: the brand mark, the primary button, and the player's progress fill. Nothing
 else. A fourth gradient makes it a landing page.
+
+**The brand** is `components/Brand.jsx`: a gradient tile (135deg, radius 28%) holding a
+white music note whose head is a ring — a reel's hub, a record's spindle hole — beside
+the name in plain `--text`, 20px/700. The tile carries the gradient so the name doesn't
+have to. The name lives in `APP_NAME` there; the manifest, `<title>` and README repeat it
+because they can't import it. The logo links home (`/`) client-side, so tapping it never
+stops the player. `public/icon-*.png` are the same mark, full-bleed for Android's masks.
 
 - **Tinted surface** = `rgba(<rgb>, .10–.15)` fill + `rgba(<rgb>, .35–.4)` border + the
   solid colour as text. Keep the trio together.
@@ -63,17 +70,64 @@ else. A fourth gradient makes it a landing page.
 ## Layout
 
 ```
-┌──────────┬────────────────────────────────┐
-│ sidebar  │  content (scrolls)             │
-│ 220px    │  max-width 920px, centred       │
-│ fixed    │  padding 24px, 16px on phone    │
-├──────────┴────────────────────────────────┤
-│ player bar — fixed, full width, 84px      │
-└───────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ ☰  Reelody     [ search ]                     ◉        │  top bar, fixed, 56px
+├──────────┬─────────────────────────────────────────────┤
+│ rail     │  content (scrolls)                          │
+│ 220px    │  max-width 920px, centred                   │
+│ or 72px  │  padding 24px, 16px on phone                │
+├──────────┼─────────────────────────────────────────────┤
+│          │ player bar — fixed, 84px                    │
+└──────────┴─────────────────────────────────────────────┘
 ```
 
-- Sidebar: wordmark, nav (Search · All songs · Playlists), then the playlist list.
-  Collapses to a bottom tab row under 760px; the player bar sits above it.
+Four fixed strips, each sized by one token: `--topbar-h` 56px, `--sidebar` 220px /
+`--sidebar-mini` 72px, `--player-h` 84px. Everything else positions off those, so moving
+one value moves the layout. Stacking, bottom to top: rail and queue panel 90, player bar
+and phone tabs 100, top bar 110, modals 200.
+
+- **Top bar** — rail toggle, brand (links home), search, avatar. It holds the two things
+  that are not places, so the rail can be nothing but destinations. Search runs the same
+  scored matcher as All songs and lands on `/songs?q=`, so a result is a URL. The avatar
+  carries the badge that used to sit on a rail row: a count for an admin's waiting
+  requests, a bare dot for an unread reply.
+- **Rail** — Home · Add a reel · Add a file · Lyrics, then a collapsible **You**
+  (All songs · Playlists · Imports). Two tiers: the four things that are each one place,
+  then everything that is a collection of yours. Both Add routes are peers in the top
+  tier rather than one row or one menu — what is behind them is the thing you came to do,
+  and a label you have to open something to read is a label nobody reads. `/add` needs
+  `end` or it stays lit on `/add/file`. **One Playlists row, and only one**: the rail used
+  to repeat every playlist under a PLAYLISTS heading three rows below a link of the same
+  name. The hamburger collapses the rail to 72px — icon over label, never icon alone,
+  because a column of unlabelled glyphs is a quiz. The collapsed state and whether You is
+  open both persist in `localStorage`. Desktop only.
+- **Phone tabs** — a separate five-tab bar (Home · Lyrics · Add · Songs · You), written
+  out rather than folded out of the rail. The rail used to *become* the tab bar by
+  dissolving its groups with `display: contents`, which meant every row it gained landed
+  on the phone too; at seven tabs each was narrower than the words in it. Five is the
+  budget: 70px each at 360px against ~56px needed for a 20px icon and a 10.5px label.
+
+### Phones (≤760px)
+
+Everything phone-specific sits inside `@media (max-width: 760px)` — the desktop layout is
+written once and phones override it, never the other way round. Check 360px (a normal
+Android) and 320px (the smallest in use); nothing may scroll sideways.
+
+- **Mini player**, `--player-h: 64px`: artwork, title over artist, play, next, loop,
+  queue. The seek bar becomes a 3px line along the top edge with a taller invisible hit
+  area; the timestamps and volume go. Previous goes too — the queue covers going back.
+  An empty player is hidden rather than spending 64px on "nothing playing".
+- **Song rows** show ▶ instead of the row number, since there's no hover to reveal it,
+  keep the artist line, and drop the duration.
+- **Song and playlist pages** stack: centred artwork, a full-width title with its tag
+  and pencil under it, and a 2×2 grid of actions.
+- **Playlist rows** keep only remove (×); add-to-playlist and download live on the
+  song's page.
+- **Playlists** are two cards a row.
+- **Navigation** is the five-tab bar, not the rail — the rail is `display: none` here.
+  The top bar stays, loses the hamburger, and drops the brand entirely under 420px so the
+  search field keeps a usable width. Add is one tab here, not two: five is the budget,
+  and `/add` shows both inputs as tabs once you arrive.
 - Content reserves `--player-h` of bottom padding so the last row is never hidden.
 - The player bar is **always mounted** and never unmounts on navigation — that is the
   whole point of the SPA. Audio must not restart when the view changes.
@@ -93,12 +147,53 @@ New, built from the same recipes:
   `--accent`, **MP3** in `--accent-2`, both `rgba(…,.12)` fill + `rgba(…,.35)` border.
   It states where a song came from, so it never uses the score colours — a tag is not a
   rating. Sits in the song row and beside the title on the song page.
+- **ModeTabs** — `.mode-tabs`, the `.loop-toggle` pill scaled up to navigation size. Add
+  music owned this and was its only caller; both of its inputs are rail rows now, so the
+  Requests / Users switch on Admin is the one thing left that needs it. The file kept the
+  class names and lost the page in its name.
+- **Eyebrow** — `.eyebrow`, a muted 13px kicker above a `.page-title`. For framing a
+  heading (the greeting on Add music) without competing with it; the moment it reads as
+  the headline it isn't an eyebrow any more.
 - **Dropzone** — `.dropzone`, a dashed `--line` border over `--field` with an icon and two
   lines of text; solid accent-tinted once a file is chosen. Picking a file starts the work
   immediately, so the zone itself carries the busy state (`.is-busy`, spinner in place of
   the icon) rather than handing off to a submit button.
 - **PlaylistCard** — 4:3 cover from the first song's thumbnail (or a gradient block when
-  empty), name, `n songs · total time`.
+  empty), name, `n songs · total time`. One card serves both grids: on your own Playlists
+  page a shared one adds a small accent `globe · Shared` line; on the Shared page it adds
+  an 18px avatar and `Shared by <first name>` (or `Shared by you`) instead. Same card,
+  because they are the same object and shouldn't drift apart.
+- **ShareToggle** — `.share-toggle`, a full-width block under the playlist actions: a
+  `globe`/`lock` icon and state word on the left, one button on the right. Private is a
+  plain `--card` block with the primary button ("Share"); shared tints to
+  `rgba(214,51,108,.08)` with an accent border, an accent title, and a secondary button
+  ("Stop sharing") — turning something off is never the loud action. The sub-line spells
+  out what public means, including that your name and picture are shown, because a
+  sharing switch that doesn't say what it exposes isn't consent.
+- **Home** — the only ungated route, and it does different work depending on who is here,
+  which is what "signed out is a state of the app" means in practice.
+  `.home-hero` opens it: greeting as the `h1`, then one paragraph at a 62ch measure. A
+  `--card` surface, **not** a gradient panel — the gradient is rationed to the wordmark,
+  the primary button and the player fill, and a hero is exactly where an accent gets spent
+  without earning it. The gradient in the page title is the accent here and it is enough.
+  The greeting lives on this page and nowhere else: on a task page it outranked the task.
+  A **visitor** gets the full sentence of what Reelody is — three ways in, and the words
+  as well as the audio — plus Sign in. Someone **signed in** already knows, so the
+  paragraph shortens to one line and the space goes to their own work instead:
+  `.home-doors`, the three ways in as equal cards (auto-fit, so they go two-up then stack
+  rather than squeezing to three), then **Recently saved** and **Recently read** as
+  `.home-row` lists, then the shared feed. The row artwork *is* the play button — it is
+  where the hand goes anyway, and it keeps a second control off a row that is mostly
+  title. Both personal sections are a nicety on a page that works without them, so a
+  failed fetch drops the section rather than the page.
+- **SignInPrompt** — `.signin-prompt`, centred in the content area where a view's contents
+  would be: faded icon, 19px title, one muted line, one button. Not a card — a bordered box
+  reads as a dialog interrupting the page, and this *is* the page. Each one states that
+  page's own reason to sign in; a prompt that says the same thing everywhere is a wall, not
+  an answer.
+- **SharedPill** — `.shared-pill`, the `.source-tag` recipe in the accent, next to the
+  title of a shared playlist. States a fact about the playlist, so it never uses the score
+  colours.
 - **PlayerBar** — left: art + title + artist; centre: prev / play-pause / next, then the
   seek bar with elapsed and total; right: loop toggle, queue toggle, volume. Progress fill
   uses the gradient; the rail is `--line`.
@@ -108,6 +203,93 @@ New, built from the same recipes:
   YouTube player.
 - **YouTubePlayer** — modal, 16:9 iframe via the YouTube IFrame API. Opening it **pauses
   the MP3 player**; two things must never play at once.
+- **Avatar** — `.avatar`, a circle sized by the caller (22px in the rail, 56px on Account).
+  When there's no picture, or Google's image host is blocked, it falls back to the initial
+  on a gradient block — a broken-image icon in the sidebar reads as a bug.
+- **Login screen** — the only view with no sidebar and no player bar: one centred `.card`,
+  max-width 460, holding the wordmark, a one-line promise, Google's own button and a fine
+  print line about what's stored. Google's button is rendered by their script
+  (`theme: filled_black`, `shape: pill`) because their branding rules don't allow a
+  hand-rolled one — it is the single control on the page that isn't ours.
+- **Account** — profile card (avatar · name · email · "Here since"), a three-up stat grid
+  (songs · playlists · plays, numbers at 26px, em dash until they load), the two limit
+  meters (compact) with a "Request more" button — not for admins, whose limits don't
+  exist — then the sign-out card. Stats come from the server, so a song saved on another device shows up.
+- **QuotaNote** — `.quota-note`, one 12.5px line under a form that spends a use: "3 of 5
+  reel extractions left. Plan". Muted until it runs out, then `--err` with "Ask for more" —
+  the same colour the refusal itself arrives in. Says nothing for an unlimited account.
+- **ErrorMsg** — `.msg.err` that takes the ApiError itself; a 402 gets an "Ask for more"
+  link to `/plan` after the server's sentence.
+- **QuotaMeter** — `.quota-meter`, a `.card` with an uppercase feature name, a 20px
+  `used / limit` (or "Unlimited"), a 6px bar on `--placeholder` filled with **solid
+  `--accent`** — not the gradient, which stays rationed — turning `--err` when used up.
+  Two side by side in `.quota-meters`, stacked under 520px.
+- **Plan tiers** — `.plan-tier`, two cards (Free · More). The one you're on takes the
+  accent tint (`rgba(214,51,108,.06)` fill, `.35` border) and a green "Yours" badge. There
+  are no prices: "More" is "On request — no card, no payment".
+- **Reply block** — `.plan-request-reply`, the admin's answer set in under the question:
+  `--field` fill, a 2px `--accent` left rule, an uppercase "Admin" label. An unread answer
+  gives its row an `--accent-2` border and a "New" badge.
+- **Rail badges** — `.sidebar-count`, a solid `--accent` pill with the number of waiting
+  requests on the Admin row, `--accent-2` "New" (`.new`) on Request more for an unread
+  answer. An `<i>`, so the phone rule that hides the foot links' `<span>` labels can't
+  take it too.
+- **Admin lists** — `.admin-list`, one `.card` with no padding holding rows divided by
+  `--line`, like an inbox: avatar · name · time · the message on one line · usage chips
+  (`.usage-chip`, `--err` tint when used up) · one action. A row opens its controls
+  underneath (`.admin-panel`, indented to the text column) only when asked, **one row at a
+  time**, so a queue of ten stays ten lines. Users rows swap the chips for one
+  `.mini-meter` per paid feature (label, used/limit, 3px bar; no bar when unlimited) and a
+  pencil. The chips and meters are driven off `FEATURES` in `components/Quota.jsx`, so a
+  new limit appears in all of them without an edit here.
+- **GrantControl** — `.grant`, one line per feature: its name and usage, then `.pill`
+  choices — No change · +5 · +10 · +25 · Unlimited · Custom (a pill-shaped number input,
+  `color-scheme: dark`). Admins think "give them 10 more", so that's what the pills say;
+  the page works out the total the server wants and previews it in `--ok` ("Reel → MP3
+  5 → 15") beside the buttons. A note is optional to approve and asked for, with focus
+  moved to it, only when declining.
+
+- **YouTubePlayer** — one player, two shapes. The **modal** is a YouTube match
+  you clicked on a song page: you went there to watch it, so it takes the
+  screen. The **dock** is a 340px card in the bottom-right, above the player bar
+  and clear of the reading column, opened by **Listen** on a lyrics page — the
+  song is meant to play while you read, so a modal there would cover the only
+  thing you came for. Folding it keeps the sound and drops the video to a title
+  bar (a height change, never unmounting the iframe). It steps 320px left when
+  the queue drawer is open rather than stacking over it, and on phones it spans
+  the width above the tabs. Stacking: 95, under the player bar and over the rail.
+- **LyricsBook** — the reading view, and the only place in the app with a serif.
+  A facing-page spread: the words (plus their romanisation) on the left, the
+  line-by-line reading on the right, turned four couplets at a time with
+  ◀ ▶ or the arrow keys. The pairing is the point — stacked, you have to hold a
+  line in your head while you scroll to find its meaning. The book feeling has
+  to come from something other than paper, since the app is dark only, so it
+  comes from a real gutter with a shadow falling into it, page numbers in the
+  outer corners, and a local serif for the verse (`Georgia`, no web font). **The
+  right page stays blank until a reading is asked for**, which is the step that
+  costs — an empty page beside full words says so better than a banner. Phones
+  stack the two pages, so a couplet still sits directly above its reading.
+- **LyricsSection** — the third `.detail-section` on a song page, and the longest block
+  in the app, so it leans on inset depth to stay readable: the words and each explained
+  line sit in a `--field` well with a `--line` border at radius 9, matching `.ident-log`.
+  Head is the usual `.mhead` + a refresh `.icon-btn`. Then a one-line source row —
+  `.badge` on the confidence ladder (High ≥.8 · Likely ≥.6 · Best guess), the site as an
+  `.ext-link`, and a `--muted` note when the words were romanised for us — with the
+  scoring reasons folded into a `<details>`. The explanation is `.pill` tags (tradition ·
+  poet · themes), a 13.5px summary, then one well per line: the line itself at 13.5px,
+  its romanisation and restatement under it at 12.5–13px `--muted`, and the deeper note
+  (about a third of lines earn one) set off by a `--line` left rule rather than a colour.
+  The glossary is a `<dl>`; a word the dictionary knew links out and carries its origin as
+  a 10.5px uppercase pill. The "one interpretation, not the last word" caveat is a `.hint`
+  at the foot — said once, after the thing it qualifies, never as a banner over it. On
+  phones the `<ol>` drops its markers and padding, because the line number is already in
+  the text above.
+
+- **Menu** — `components/Menu.jsx`, the dropdown behind the avatar:
+  elevated surface, `--line` border, 10px radius, a shadow deep enough to float over a
+  card. Closes on outside click *and* Escape. An item may carry a second `--muted` line
+  (what each Add input is for, what's left of your limits). `SongRow` still has its own
+  copy of this shape and could adopt it.
 
 ## Interaction rules
 
@@ -144,5 +326,6 @@ deleted, or the URL is off." over "Error: invalid input".
 - Busy → disabled + spinner; failure → `.msg.err`; empty → muted `.song`.
 - The player survives every navigation without a gap in playback.
 - Works at 360px: sidebar becomes tabs, player bar stays usable, no horizontal scroll.
-- Nothing is fetched from a CDN at load. The YouTube IFrame API is the sole exception,
-  loaded only when the user opens a video.
+- Nothing is fetched from a CDN at load. Two exceptions, both loaded on demand and never on
+  a page that doesn't need them: the YouTube IFrame API when a video is opened, and Google
+  Identity Services on the login screen.

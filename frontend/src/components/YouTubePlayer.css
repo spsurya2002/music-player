@@ -1,0 +1,321 @@
+/* The corner player. Sits above the player bar, out of the reading column, and
+   stays put across navigation because it lives in Shell beside the audio.
+
+   Folded, it keeps playing — the point of a corner player is the sound, and
+   destroying the iframe to save 180px would stop it. */
+
+.yt-dock {
+  position: fixed;
+  right: 18px;
+  bottom: calc(var(--player-h) + 18px);
+  width: 340px;
+  /* Above the top bar (110), below modals (200). It is a floating window the
+     person placed themselves: sliding under a fixed strip would both hide it
+     and, because the header is the drag handle, make it unmovable. */
+  z-index: 120;
+  /* The surface is drawn by ::before, not here. See-through is the whole
+     point of the slider, and `opacity` on the card would take the title and
+     the buttons down with it — leaving nothing to grab or to set it back
+     with. Split in two, the parts that block your view fade and the parts you
+     operate it by do not. */
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  /* visible, not hidden: the resize grip sits on the border. The frame clips
+     itself instead. */
+  overflow: visible;
+  /* So the head can thin itself out as the card is squeezed down. */
+  container-type: inline-size;
+}
+
+/* The panel: the card's own surface, as a layer that can be seen through.
+   inset -1px puts it back over the border box the transparent border above
+   reserves, so the box model is exactly what it always was. */
+.yt-dock::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  /* Set from the slider, as a fraction. Unset it is 1, so a browser that lost
+     the stored value still shows an ordinary player. */
+  opacity: var(--yt-dock-opacity, 1);
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+  /* Behind the head and the video, inside the card's own stacking context. */
+  z-index: -1;
+}
+
+/* The video goes with the surface: it is the largest thing in the way, so a
+   see-through player that still paints an opaque picture is not one. No hover
+   exception — you fade it in order to read what is behind it, and restoring it
+   the moment you reach for the slider is what makes the slider useless. */
+.yt-dock-frame {
+  opacity: var(--yt-dock-opacity, 1);
+}
+
+/* The handles are the other half: they fade with everything else, and come
+   back solid the moment you point at the card, focus something in it, drag it
+   or open the slider. That is what keeps a 2% player findable, grabbable and
+   settable — and it costs nothing, because a 38px strip of title and two
+   buttons is not what was in your way. */
+.yt-dock-head,
+.yt-dock-resize {
+  opacity: var(--yt-dock-opacity, 1);
+  transition: opacity 0.18s ease;
+}
+
+.yt-dock:hover .yt-dock-head,
+.yt-dock:focus-within .yt-dock-head,
+.yt-dock.dragging .yt-dock-head,
+.yt-dock.tuning .yt-dock-head,
+.yt-dock:hover .yt-dock-resize,
+.yt-dock:focus-within .yt-dock-resize,
+.yt-dock.dragging .yt-dock-resize,
+.yt-dock.tuning .yt-dock-resize {
+  opacity: 1;
+}
+
+/* The queue drawer opens over the same corner. Stepping aside is better than
+   stacking: both are things you opened on purpose and want to see. 320px is
+   the drawer's width (QueuePanel.css). */
+.yt-dock.beside-queue {
+  right: calc(320px + 18px);
+}
+
+/* Once it has been dragged, the corner no longer applies: it is placed from the
+   top-left in viewport coordinates, which is the only frame a drag can speak. */
+.yt-dock.placed {
+  right: auto;
+  bottom: auto;
+}
+
+/* While dragging, the video stops taking pointer events. An iframe swallows
+   every pointer event that reaches it — including the moves belonging to a drag
+   that started outside it — so the card would stick the moment the cursor
+   crossed the video. This is the standard fix, and it lasts only as long as the
+   gesture. */
+.yt-dock.dragging .yt-dock-frame {
+  pointer-events: none;
+}
+
+/* The head is the drag handle. `touch-action: none` or a phone scrolls the page
+   under your finger instead of moving the card. */
+.yt-dock-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.yt-dock-head:active {
+  cursor: grabbing;
+}
+
+.yt-dock-grip {
+  color: var(--muted);
+  flex: none;
+}
+
+/* A grip in each corner, each one hatched towards the outside, so the card can
+   be grown or shrunk from whichever side it is not in the way on. The opposite
+   corner is the anchor every time. 16px is a comfortable pointer target without
+   eating the video. */
+.yt-dock-resize {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  touch-action: none;
+  /* The hatch itself, angled per corner below. */
+  --grip: var(--line) 0 2px, transparent 2px 4px, var(--line) 4px 6px, transparent 6px;
+}
+
+/* Another 5px of reach, out past the border into what is otherwise shadow.
+   The top two corners share their strip with the head's own controls, and this
+   keeps a band of them that no button is sitting on. */
+.yt-dock-resize::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+
+.yt-dock-resize.nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, var(--grip));
+}
+
+.yt-dock-resize.ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+  background: linear-gradient(225deg, var(--grip));
+}
+
+.yt-dock-resize.sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+  background: linear-gradient(45deg, var(--grip));
+}
+
+.yt-dock-resize.se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+  background: linear-gradient(315deg, var(--grip));
+}
+
+/* Where a top grip and a head button overlap, the button wins: a close button
+   that resizes instead of closing is the worse of the two mistakes. */
+.yt-dock-head .icon-btn {
+  position: relative;
+  z-index: 1;
+}
+
+.yt-dock-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The fade control, open only while you are setting it — the head is 160px
+   wide at its smallest and a slider does not live there permanently. */
+.yt-dock-fade {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.yt-dock-fade-ico {
+  color: var(--muted);
+  flex: none;
+}
+
+.yt-dock-fade input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.yt-dock-fade-val {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--muted);
+  /* The row must not twitch as the number goes 2 -> 100. */
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.yt-dock-fade-reset {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.yt-dock-fade-reset:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 16:9, the ratio the thumbnails elsewhere already use. */
+.yt-dock-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0 0 13px 13px;
+  overflow: hidden;
+  /* Only seen for the moment before the iframe paints. --bg rather than black,
+     because every colour in this app is a token. */
+  background: var(--bg);
+  transition: opacity 0.18s ease;
+}
+
+.yt-dock-frame iframe,
+.yt-dock-frame > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Folded: the head alone, still playing. Height rather than display:none, so
+   the iframe is never removed from the document. */
+.yt-dock.folded .yt-dock-frame {
+  height: 0;
+  aspect-ratio: auto;
+  overflow: hidden;
+}
+
+.yt-dock-down {
+  transform: rotate(90deg);
+}
+
+.yt-dock-up {
+  transform: rotate(-90deg);
+}
+
+@media (max-width: 760px) {
+  /* Full width above the player bar and the tabs — a 340px card on a 360px
+     screen is the whole screen anyway, and a margin either side reads better
+     than a near-miss. A remembered position from a desktop is ignored here
+     rather than dropping the card somewhere off the edge. */
+  .yt-dock,
+  .yt-dock.beside-queue,
+  .yt-dock.placed {
+    top: auto !important;
+    left: 10px !important;
+    width: auto !important;
+    right: 10px;
+    bottom: calc(var(--player-h) + 56px + 10px);
+  }
+
+  .yt-dock-resize {
+    display: none;
+  }
+}
+
+/* Squeezed small, the head keeps the two controls and drops everything else —
+   at 160px the title is three letters and an ellipsis, which is noise, and the
+   grip is redundant once the whole strip is the handle. */
+@container (max-width: 250px) {
+  .yt-dock-title,
+  .yt-dock-fade-reset {
+    display: none;
+  }
+}
+
+@container (max-width: 200px) {
+  .yt-dock-grip,
+  /* The slider is the control; the mark beside it and the readout are
+     commentary, and at this width the slider needs the room. */
+  .yt-dock-fade-ico,
+  .yt-dock-fade-val {
+    display: none;
+  }
+
+  .yt-dock-head {
+    justify-content: flex-end;
+    padding-left: 6px;
+  }
+}

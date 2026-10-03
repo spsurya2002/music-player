@@ -3,3 +3,10 @@ downloads/
 cookies.txt
 __pycache__/
 uploads/
+.env
+
+# The lyrics sidecar: its deps, its build output, its key, and the caches it
+# writes (found lyrics, Gemini explanations, the Rekhta dictionary).
+lyrics-node/node_modules/
+lyrics-node/dist/
+backend/lyrics-cache/

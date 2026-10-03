@@ -1,6 +1,7 @@
 .player-bar {
   position: fixed;
   left: var(--sidebar);
+  transition: left 0.15s ease;
   right: 0;
   bottom: 0;
   height: var(--player-h);
@@ -11,6 +12,12 @@
   gap: 16px;
   padding: 0 18px;
   z-index: 100;
+}
+
+/* The bar spans the content column, so it has to move with the rail. Same
+   duration as .shell-content's margin, or the two slide out of step. */
+.shell.rail-mini .player-bar {
+  left: var(--sidebar-mini);
 }
 
 .player-bar-empty {
@@ -119,6 +126,25 @@
   background: var(--line);
   cursor: pointer;
   position: relative;
+  /* Or a drag on a phone scrolls the page under the finger instead of
+     scrubbing. */
+  touch-action: none;
+}
+
+/* A 4px line is a hard thing to grab. This is what actually catches the
+   press, without the bar looking any thicker. */
+.player-seek::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  bottom: -7px;
+}
+
+.player-seek:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 .player-seek-fill {
@@ -127,6 +153,33 @@
   height: 100%;
   border-radius: 4px;
   background: var(--gradient);
+}
+
+/* The handle. Hidden until you point at the bar or take hold of it: at rest
+   the progress line is the cleaner thing, and a dot that is always there
+   reads as a control even when nothing is playing. */
+.player-seek-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.12s ease;
+  pointer-events: none;
+}
+
+.player-seek:hover .player-seek-thumb,
+.player-seek:focus-visible .player-seek-thumb,
+.player-seek.dragging .player-seek-thumb {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Held, the bar thickens a little — the feedback that the drag took. */
+.player-seek.dragging {
+  height: 6px;
 }
 
 .player-right {
@@ -150,27 +203,144 @@
   accent-color: var(--accent);
 }
 
+/* The nudge buttons. The number rides in the corner of the arc, which is how
+   every player that has these draws them — the glyph says "jump", the digit
+   says how far. */
+.player-nudge {
+  position: relative;
+}
+
+.player-nudge span {
+  position: absolute;
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1;
+  /* Centred in the arc, nudged down past the arrowhead. */
+  top: 54%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* The queue drawer is shut most of the time, so the count on this button is
+   what tells you an "Add to queue" landed. #fff on the accent is the same pair
+   the play button and the brand mark already use. */
+.player-queue-btn {
+  position: relative;
+}
+
+.player-queue-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  /* The bar's own background, so the badge reads as sitting on top of the
+     icon rather than merging into it. */
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}
+
+/* Phones: a mini player, the shape every music app on a phone has settled on.
+   One row — artwork, what's playing, the two buttons you reach for — with the
+   progress as a thin line along the top edge instead of a 40px seek bar
+   squeezed between two timestamps. */
 @media (max-width: 760px) {
-  .player-bar {
+  /* Both selectors, for the reason spelled out in Shell.css: `.shell.rail-mini
+     .player-bar` outranks a bare `.player-bar` in here, so the collapsed rail's
+     width was being left against a phone that has no rail. */
+  .player-bar,
+  .shell.rail-mini .player-bar {
     left: 0;
     bottom: 56px;
-    padding: 0 10px;
+    padding: 0 6px 0 10px;
     gap: 8px;
   }
+  /* An empty bar is 64px of a small screen spent saying nothing. It comes back
+     the moment something plays. */
+  .player-bar-empty {
+    display: none;
+  }
+
   .player-left {
     width: auto;
     flex: 1;
   }
-  .player-right {
-    width: auto;
+  .player-art {
+    width: 44px;
+    height: 44px;
+    border-radius: 9px;
   }
-  .player-volume {
+
+  /* The centre column dissolves: its controls join the row, and its seek row
+     is lifted out to the top edge. */
+  .player-center {
+    display: contents;
+  }
+  .player-controls {
+    gap: 2px;
+  }
+  /* Previous is the one to go: next is what you reach for, and the queue is a
+     tap away for anything further back. The two nudges stay — on a phone,
+     re-hearing a line is the thing you cannot do with a precise tap on a
+     200px seek bar. */
+  .player-controls .icon-btn:first-child {
     display: none;
   }
-}
+  .player-play {
+    width: 40px;
+    height: 40px;
+  }
+  .player-bar .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
 
-@media (max-width: 480px) {
-  .player-artist {
+  .player-seek-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    gap: 0;
+  }
+  .player-time {
+    display: none;
+  }
+  .player-seek {
+    height: 3px;
+    border-radius: 0;
+  }
+  /* Thinner line, so a little more room around it than the desktop ::before
+     gives. The thumb stays showing here: there is no hover on a phone to
+     bring it back, and the bar sits on the player's top edge where a handle
+     is the only sign it can be dragged at all. */
+  .player-seek::before {
+    top: -10px;
+    bottom: -10px;
+  }
+  .player-seek-thumb {
+    transform: translateY(-50%) scale(1);
+  }
+  .player-seek.dragging {
+    height: 4px;
+  }
+  .player-seek-fill {
+    border-radius: 0;
+  }
+
+  .player-right {
+    width: auto;
+    gap: 0;
+  }
+  .player-volume {
     display: none;
   }
 }

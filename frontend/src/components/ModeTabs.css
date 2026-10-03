@@ -1,0 +1,52 @@
+/* A row of tab pills. Named for the shape, not for a page: Add music used to
+   own it and was the only caller, but both of its inputs are rail rows now, so
+   the only user left is AdminView's Requests / Users switch. Kept because that
+   is still exactly the control it needs. */
+
+.mode-tabs {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+  margin-bottom: 18px;
+}
+
+.mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mode-tab:hover {
+  color: var(--text);
+}
+
+.mode-tab.active {
+  background: rgba(214, 51, 108, 0.14);
+  color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  /* Two tabs have to fit a 360px screen with the view's own gutter, so they
+     share the width evenly rather than sizing to their labels. */
+  .mode-tabs {
+    display: flex;
+    width: 100%;
+  }
+  .mode-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+}

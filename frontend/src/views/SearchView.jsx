@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Msg from "../components/Msg";
 import YouTubeResultRow from "../components/YouTubeResultRow";
+import { ErrorMsg, QuotaNote } from "../components/Quota";
+import AddTabs from "../components/AddTabs";
+import { emitLimitsChanged } from "../utils/bus";
 import { fmtDur, fmtSize } from "../utils/format";
 import "./views.css";
 
@@ -11,7 +14,7 @@ const INITIAL_MATCH = null; // { identified, song, results } | { identified: fal
 export default function SearchView() {
   const [url, setUrl] = useState("");
   const [extracting, setExtracting] = useState(false);
-  const [extractError, setExtractError] = useState("");
+  const [extractError, setExtractError] = useState(null); // the ApiError, so a used-up limit can say so
   const [extracted, setExtracted] = useState(null); // extract() response
 
   const [matching, setMatching] = useState(false);
@@ -31,7 +34,7 @@ export default function SearchView() {
     if (!trimmed) return;
 
     setExtracting(true);
-    setExtractError("");
+    setExtractError(null);
     setExtracted(null);
     setMatch(INITIAL_MATCH);
     setFreeResults(null);
@@ -42,9 +45,12 @@ export default function SearchView() {
       setExtracted(data);
       runMatch(data.token);
     } catch (err) {
-      setExtractError(err.message || "Something went wrong.");
+      setExtractError(err);
     } finally {
       setExtracting(false);
+      // A success spent a use and a failure gave it back; either way the
+      // meter below the form has moved.
+      emitLimitsChanged();
     }
   }
 
@@ -101,8 +107,10 @@ export default function SearchView() {
 
   return (
     <div className="view">
-      <h1 className="page-title">Reel Audio</h1>
+      <h1 className="page-title">Add a reel</h1>
       <p className="sub">Paste an Instagram reel or post link — get the audio as MP3.</p>
+
+      <AddTabs />
 
       <div className="card">
         <form className="row" onSubmit={handleExtract}>
@@ -126,9 +134,10 @@ export default function SearchView() {
           </button>
         </form>
         <div className="hint">Works with reels, posts and IGTV. Private posts need cookies — see the README.</div>
+        <QuotaNote feature="reel" />
 
         {extracting && <Msg kind="info">Fetching the post and pulling the audio out…</Msg>}
-        {extractError && <Msg kind="err">{extractError}</Msg>}
+        <ErrorMsg error={extractError} />
 
         {extracted && (
           <div className="search-result">

@@ -124,7 +124,8 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.song-row-dropdown button {
+.song-row-dropdown button,
+.song-row-dropdown a {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -136,16 +137,60 @@
   cursor: pointer;
   font-size: 13.5px;
   text-align: left;
+  text-decoration: none;
 }
-.song-row-dropdown button:hover {
+.song-row-dropdown button:hover,
+.song-row-dropdown a:hover {
   background: var(--hover);
 }
 .song-row-dropdown button.danger {
   color: var(--err);
 }
 
-@media (max-width: 480px) {
-  .song-row-artist {
+/* Phones. The row had six things on one line and the title got what was left —
+   about eight characters. The duration goes (it's on the song's page and in
+   the player), and the artist line comes back, since a second line costs no
+   width at all. */
+@media (max-width: 760px) {
+  .song-row {
+    gap: 8px;
+    padding: 6px 2px;
+  }
+  /* No hover on a touchscreen, so the play button that hover reveals has to be
+     showing already — a bare "3" gives no hint it can be tapped. */
+  .song-row-index {
+    width: 30px;
+    height: 44px;
+  }
+  .song-row-index .idx,
+  .song-row:hover .song-row-index .idx {
     display: none;
+  }
+  .song-row-index .ico,
+  .song-row:hover .song-row-index .ico {
+    display: flex;
+    color: var(--muted);
+  }
+  .song-row.active .song-row-index .ico {
+    color: var(--accent);
+  }
+  .song-row-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 9px;
+  }
+  .song-row-title {
+    font-size: 14.5px;
+  }
+  .song-row-duration {
+    display: none;
+  }
+  .song-row-menu .icon-btn {
+    width: 34px;
+    height: 44px;
+  }
+  .song-row .source-tag {
+    font-size: 9.5px;
+    padding: 2px 6px;
   }
 }

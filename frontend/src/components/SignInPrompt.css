@@ -1,0 +1,38 @@
+/* Centred in the content area, the way an empty state is — because that is what
+   this is: the page is real, it just has nothing to show you yet. Deliberately
+   not a card. A bordered box would read as a dialog interrupting the page,
+   rather than the page's own contents. */
+.signin-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 20px 64px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.signin-prompt-icon {
+  color: var(--muted);
+  opacity: 0.55;
+  margin-bottom: 18px;
+}
+
+.signin-prompt-title {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.signin-prompt-line {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+@media (max-width: 480px) {
+  .signin-prompt {
+    padding: 36px 8px 44px;
+  }
+}

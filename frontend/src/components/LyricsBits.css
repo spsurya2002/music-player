@@ -1,0 +1,204 @@
+/* The chrome around a lyrics lookup — where it came from, its glossary, its
+   crawl log. The words and their reading are LyricsBook.css; this is
+   everything that frames them, shared by the Lyrics pages and the section on a
+   song's page.
+
+   No new colours, radii or type sizes: everything here is the tokens in
+   theme.css and the ladders in docs/DESIGN.md. The one visual idea this adds is
+   depth by inset — the words and each explained line sit in a --field well, the
+   token meant for surfaces below --card, because this section is long and the
+   page needs somewhere for the eye to rest between blocks. The nearest relative
+   is .ident-log in views/views.css, and this deliberately matches it. */
+
+/* ---- where the words came from ---- */
+
+.lyrics-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+}
+
+.lyrics-site {
+  color: var(--muted);
+}
+
+/* An automatic romanisation has to admit it. Not an error — it is still the
+   most readable version for most people — so --muted, not --err. */
+.lyrics-flag {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.lyrics-why {
+  flex-basis: 100%;
+}
+
+.lyrics-why summary,
+.lyrics-crawl summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.lyrics-why ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ---- what it's saying ---- */
+
+.lyrics-meaning {
+  margin-top: 22px;
+}
+
+.lyrics-nomeaning {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.lyrics-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.lyrics-summary {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+/* ---- the glossary ---- */
+
+.lyrics-terms {
+  margin-top: 22px;
+}
+
+.lyrics-terms dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lyrics-term dt {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.lyrics-term-roman {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: normal;
+}
+
+/* Which language a word came in on. The reason it is worth a gloss at all is
+   usually that it arrived from Persian or Arabic rather than everyday Hindustani. */
+.lyrics-term-origin {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.lyrics-term dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.lyrics-caveat {
+  margin-top: 18px;
+}
+
+/* ---- the crawl log ---- */
+
+.lyrics-crawl {
+  margin-top: 16px;
+}
+
+.lyrics-crawl ul {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lyrics-crawl li {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lyrics-crawl-dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--err);
+}
+
+.lyrics-crawl li.ok .lyrics-crawl-dot {
+  background: var(--ok);
+}
+
+.lyrics-crawl-url {
+  overflow-wrap: anywhere;
+}
+
+.lyrics-crawl-reason {
+  grid-column: 2;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* ---- phones ---- */
+
+@media (max-width: 760px) {
+  .lyrics-text {
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  /* The marker plus 22px of padding costs a quarter of a 360px screen, and the
+     line number is already in the explanation above it. */
+  .lyrics-lines {
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .lyrics-lines li {
+    padding: 10px 12px;
+  }
+}
+
+/* ---- the script switcher ---- */
+
+/* The finder keeps one candidate per writing system, so this is a choice of
+   version, not a translation toggle — reusing .pill, which already means "one
+   of these at a time" everywhere else in the app. */
+.lyrics-scripts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

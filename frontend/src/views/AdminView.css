@@ -1,0 +1,545 @@
+/* Admin — two lists, each one .card with rows divided by --line, like an inbox.
+   A row is a line of facts; its controls open underneath only when asked for,
+   one row at a time, so a queue of ten stays ten lines long. Nothing here has
+   a colour of its own: states are .badge tones, choices are .pill, the tabs
+   are Add music's. */
+
+.mode-tab .admin-count {
+  margin-left: 2px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.admin-list {
+  padding: 0;
+  overflow: hidden;
+}
+.admin-list > .msg {
+  margin: 14px 18px;
+}
+
+.admin-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-list-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.admin-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+/* Qualified past the global input[type="search"] rule, which sets a taller field. */
+.admin-list-head input.admin-search {
+  flex: 1 1 200px;
+  max-width: 300px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+}
+
+.admin-empty {
+  padding: 36px 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.admin-empty svg {
+  opacity: 0.5;
+}
+.admin-empty-sub {
+  font-size: 12.5px;
+}
+
+/* ---- a row ---- */
+
+.admin-row + .admin-row {
+  border-top: 1px solid var(--line);
+}
+.admin-row.open {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+}
+.admin-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.admin-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-time {
+  font-size: 12px;
+  color: var(--muted);
+  flex: none;
+}
+.admin-email {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* One line until the row is opened, then the whole message. */
+.admin-row-message {
+  font-size: 13.5px;
+  color: var(--text);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-row-message.full {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.usage-chip {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+.usage-chip.out {
+  color: var(--err);
+  border-color: rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.admin-row-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.admin-row-reply {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+/* The users list's two usage columns. */
+.admin-meters {
+  display: flex;
+  gap: 14px;
+  flex: none;
+}
+.mini-meter {
+  width: 78px;
+}
+.mini-meter-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.mini-meter-count {
+  color: var(--text);
+  font-weight: 600;
+}
+.mini-meter.out .mini-meter-count {
+  color: var(--err);
+}
+.mini-meter-bar {
+  height: 3px;
+  border-radius: 20px;
+  background: var(--placeholder);
+  margin-top: 5px;
+  overflow: hidden;
+}
+.mini-meter-bar > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 20px;
+}
+.mini-meter.out .mini-meter-bar > div {
+  background: var(--err);
+}
+
+/* ---- the opened part ---- */
+
+/* Indented to the text column (18px gutter + 34px avatar + 12px gap), so the
+   controls read as belonging to the row above them. */
+.admin-panel {
+  padding: 2px 18px 16px 64px;
+}
+.admin-panel-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.grant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.grant + .grant {
+  border-top: 1px dashed var(--line);
+}
+.grant-label {
+  width: 150px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.grant-used {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.grant-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.grant-input {
+  width: 84px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--accent);
+  background: var(--field);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+  /* The native step arrows are drawn light-on-white otherwise. */
+  color-scheme: dark;
+}
+
+.admin-note {
+  width: 100%;
+  margin-top: 10px;
+  resize: vertical;
+  font-size: 13.5px;
+  padding: 10px 12px;
+}
+
+.admin-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.admin-preview {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.admin-preview.on {
+  color: var(--ok);
+}
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.admin-actions .spin {
+  width: 12px;
+  height: 12px;
+}
+
+@media (max-width: 640px) {
+  .admin-list-head,
+  .admin-row-main {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .admin-list-head input.admin-search {
+    max-width: none;
+  }
+  /* The meters drop under the name rather than squeezing it to nothing. */
+  .admin-row-main {
+    flex-wrap: wrap;
+  }
+  .admin-meters {
+    order: 3;
+    width: 100%;
+    padding-left: 46px;
+  }
+  .mini-meter {
+    flex: 1;
+    width: auto;
+  }
+  .admin-panel {
+    padding: 2px 14px 14px;
+  }
+  .grant {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .grant-label {
+    width: auto;
+    flex-direction: row;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .admin-panel-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-actions .btn {
+    flex: 1;
+  }
+}
+
+/* ---- Feedback ---------------------------------------------------------- */
+
+.admin-stars {
+  display: inline-flex;
+  gap: 1px;
+  flex: none;
+  /* The unlit ones have to be visible or a 2/5 reads as a 2 out of nothing. */
+  color: var(--line);
+  line-height: 0;
+}
+
+.admin-stars .on {
+  color: var(--accent-2);
+}
+
+.feedback-silent {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* The tally: one big number on the left, the spread on the right. Sized off
+   the tallest bar rather than the total, so three ratings still read as a
+   shape instead of three slivers. */
+.admin-rating {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+.admin-rating-score {
+  flex: none;
+  text-align: center;
+}
+
+.admin-rating-avg {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.admin-rating-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.admin-rating-bars {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-rating-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "5 ★ ———— 6": which rating the bar counts, so the row says how many five
+   stars there are without the reader inferring it from position. */
+.admin-rating-n {
+  width: 22px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent-2);
+}
+
+.admin-rating-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 20px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.admin-rating-fill {
+  display: block;
+  height: 100%;
+  border-radius: 20px;
+  background: var(--gradient);
+}
+
+.admin-rating-num {
+  width: 22px;
+  flex: none;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .admin-rating {
+    gap: 16px;
+  }
+}
+
+/* ---- Request thread ---------------------------------------------------- */
+
+.admin-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.admin-note-line {
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--field);
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Marked on the edge rather than sat on opposite sides — the panel is already
+   narrow and two columns would leave each line a few words wide. */
+.admin-note-line.admin {
+  border-left: 2px solid var(--accent);
+  border-radius: 0 9px 9px 0;
+}
+
+.admin-note-line.user {
+  border-left: 2px solid var(--line);
+  border-radius: 0 9px 9px 0;
+}
+
+.admin-note-who {
+  display: block;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.admin-note-at {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.admin-reply {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.admin-reply input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .admin-reply {
+    flex-wrap: wrap;
+  }
+  .admin-reply input {
+    flex-basis: 100%;
+  }
+  .admin-reply .btn {
+    flex: 1;
+  }
+}
+
+/* Folded, the thread is a label with the last line beside it. The panel's job
+   is Grant; the conversation is context for it. */
+.admin-thread-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.admin-thread-toggle svg {
+  flex: none;
+  transition: transform 0.12s ease;
+}
+
+.admin-thread-toggle svg.down {
+  transform: rotate(90deg);
+}
+
+.admin-thread-peek {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.admin-thread {
+  max-height: 260px;
+  overflow-y: auto;
+}

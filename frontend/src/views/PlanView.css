@@ -1,0 +1,248 @@
+/* Plan — the two tiers side by side under the meters. The current one gets the
+   accent tint, the same way the active mode tab and nav link do. */
+.plan-tiers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.plan-tier.current {
+  background: rgba(214, 51, 108, 0.06);
+  border-color: rgba(214, 51, 108, 0.35);
+}
+
+.plan-tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-tier-name {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.plan-tier-price {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.plan-tier-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.plan-tier-list li + li {
+  margin-top: 4px;
+}
+
+.plan-ask {
+  margin-top: 14px;
+}
+.plan-ask textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 84px;
+}
+.plan-ask-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+.plan-ask-foot .hint {
+  margin-top: 0;
+}
+
+.plan-history {
+  margin-top: 22px;
+}
+
+.plan-request.unread {
+  border-color: rgba(247, 103, 7, 0.35);
+}
+.plan-request-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.plan-request-date {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.plan-request-message {
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* The admin's answer, set in from the question the way a reply is. */
+.plan-request-reply {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent);
+  background: var(--field);
+  border-radius: 0 9px 9px 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.plan-request-from {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.plan-thread-box {
+  margin-top: 8px;
+}
+
+/* Folded, the whole thread is one line: how many, and the last thing said.
+   A row of twelve messages under each request is a transcript, not a list. */
+.plan-thread-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.plan-thread-toggle:hover {
+  color: var(--text);
+}
+
+.plan-thread-toggle svg {
+  flex: none;
+  transition: transform 0.12s ease;
+}
+
+.plan-thread-toggle svg.down {
+  transform: rotate(90deg);
+}
+
+.plan-thread-toggle > span:first-of-type {
+  flex: none;
+}
+
+.plan-thread-peek {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+/* The back-and-forth on a request that is still open. Indented from the
+   request itself, because every line in here is about it rather than another
+   one of them. */
+.plan-thread {
+  margin-top: 6px;
+  /* Twelve is the cap, and twelve at full height is taller than the card it
+     sits in. */
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plan-note {
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--field);
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Yours and theirs differ by the edge they are marked on, not by sitting on
+   opposite sides: two columns at 360px leaves each line about four words. */
+.plan-note.admin {
+  border-left: 2px solid var(--accent);
+  border-radius: 0 9px 9px 0;
+}
+
+.plan-note.user {
+  border-left: 2px solid var(--line);
+  border-radius: 0 9px 9px 0;
+}
+
+.plan-note-text {
+  display: block;
+  color: var(--text);
+}
+
+.plan-note-at {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Plain text, not a button: chasing a request is a small thing to offer and a
+   filled button next to a status badge reads as the thing to do. */
+.plan-ask-link {
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.plan-ask-link:hover {
+  text-decoration: underline;
+}
+
+.plan-ask-note {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.plan-ask-note input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .plan-tiers {
+    grid-template-columns: 1fr;
+  }
+
+  /* Three controls on one row is about 300px of the 328 a 360px screen has
+     left after the card's padding. The field takes its own line. */
+  .plan-ask-note {
+    flex-wrap: wrap;
+  }
+  .plan-ask-note input {
+    flex-basis: 100%;
+  }
+  .plan-ask-note .btn {
+    flex: 1;
+  }
+  .plan-ask-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -47,6 +47,41 @@ def song_to_dict(doc: dict, playlist_ids: list[str] | None = None) -> dict:
     }
 
 
+def owner_to_dict(doc: dict | None) -> dict | None:
+    """Who a shared playlist belongs to — the label under its name, nothing more.
+
+    Deliberately not `user_to_dict`: that shape carries the email address, and a
+    public page must not hand every signed-in visitor a list of addresses.
+    """
+    if not doc:
+        return None
+    name = doc.get("name") or ""
+    return {
+        "id": str(doc["_id"]),
+        "name": name,
+        "given_name": doc.get("given_name") or name.split(" ")[0],
+        "picture": doc.get("picture"),
+    }
+
+
+def shared_song_to_dict(doc: dict) -> dict:
+    """A song seen inside somebody else's shared playlist.
+
+    The same shape the player already knows, with two differences: the audio
+    comes from the shared route (the normal one scopes to the caller's own
+    library and would 404), and `shared` marks it read-only so nothing tries to
+    rename it, file it into a playlist, or count a play against its owner.
+    """
+    sid = str(doc["_id"])
+    out = song_to_dict(doc)
+    out["audio_url"] = f"/api/shared/songs/{sid}/audio"
+    out["shared"] = True
+    # Membership of the viewer's playlists is the one derived field that can't
+    # mean anything here — it would be the owner's playlists, not theirs.
+    out["playlist_ids"] = []
+    return out
+
+
 def playlist_to_dict(doc: dict, songs_for_derived: list[dict] | None = None) -> dict:
     song_ids = doc.get("song_ids") or []
     songs_for_derived = songs_for_derived or []
@@ -64,6 +99,116 @@ def playlist_to_dict(doc: dict, songs_for_derived: list[dict] | None = None) -> 
         "song_ids": song_ids,
         "song_count": len(song_ids),
         "duration": duration,
+        "cover": cover,
+        # Sharing is public or nothing: true means anyone signed in can find it
+        # on the Shared page, play it and copy it. shared_at is when that was
+        # last switched on, which is what the Shared page sorts by.
+        "is_public": bool(doc.get("is_public", False)),
+        "shared_at": iso(doc.get("shared_at")),
+        "created_at": iso(doc.get("created_at")),
+        "updated_at": iso(doc.get("updated_at")),
+    }
+
+
+def limit_request_to_dict(doc: dict) -> dict:
+    """One "I need more" request, as its sender sees it. The admin view adds a
+    `user` beside this (routers/admin.py) — the sender already knows who they are."""
+    return {
+        "id": str(doc["_id"]),
+        "message": doc.get("message") or "",
+        "state": doc.get("state"),
+        "reply": doc.get("reply") or "",
+        "limits_before": doc.get("limits_before"),
+        "limits_after": doc.get("limits_after"),
+        "created_at": iso(doc.get("created_at")),
+        "resolved_at": iso(doc.get("resolved_at")),
+        # The back-and-forth while it was open: "any idea how long?" and the
+        # answer. Oldest first, which is the order it is read in.
+        "notes": [
+            {
+                "from": n.get("from"),
+                "text": n.get("text") or "",
+                "at": iso(n.get("at")),
+            }
+            for n in (doc.get("notes") or [])
+        ],
+        # Something from the admin they haven't opened the Plan page to read:
+        # a decision, or an answer on the thread. Both clear `seen_at` when
+        # they happen, so this stays one field rather than two timestamps to
+        # compare. `last_admin_at` is absent on rows written before threads
+        # existed, hence the state test beside it.
+        "unread": (doc.get("state") != "pending" or bool(doc.get("last_admin_at")))
+        and doc.get("seen_at") is None,
+    }
+
+
+def lyrics_to_dict(doc: dict) -> dict:
+    """One song's lyrics row: the job and its result in the same shape.
+
+    The page polls this while either half is queued or running, then renders
+    what came back, so every field below is present from the first poll — null
+    until there is something to put in it. `meaning` stays null on a `done` row
+    until someone asks for a reading, which is the step that costs.
+    """
+    return {
+        "id": str(doc["_id"]),
+        "song_id": doc.get("song_id"),
+        "state": doc.get("state"),
+        # What we actually asked the finder, which is not always the song's
+        # title — worth showing, because a bad result is usually a bad query.
+        "query": doc.get("query") or "",
+        "text": doc.get("text"),
+        "source": doc.get("source"),
+        "alternatives": doc.get("alternatives") or [],
+        "crawled": doc.get("crawled") or [],
+        # The reading is its own half, asked for separately and billed
+        # separately: null here means nobody has pressed the button yet.
+        "meaning_state": doc.get("meaning_state"),
+        "meaning": doc.get("meaning"),
+        "meaning_note": doc.get("meaning_note"),
+        # Where the lookup came from, and what the finder decided the query
+        # really was — for a pasted link that is the only place the real artist
+        # and title exist, so the page shows it instead of the raw URL.
+        "origin": doc.get("origin") or "song",
+        # Whether this one is in the library yet. A search starts false and the
+        # page asks; everything written before the flag existed has no field,
+        # and a missing field means kept.
+        "kept": doc.get("kept") is not False,
+        "resolved": doc.get("resolved"),
+        "video": doc.get("video"),
+        "error": doc.get("error"),
+        "created_at": iso(doc.get("created_at")),
+        "finished_at": iso(doc.get("finished_at")),
+    }
+
+
+def feedback_to_dict(doc: dict) -> dict:
+    """One piece of feedback. No user on it — the admin route attaches that
+    through _account(), and nobody else ever reads somebody else's."""
+    return {
+        "id": str(doc["_id"]),
+        "rating": doc.get("rating"),
+        "message": doc.get("message") or "",
+        "created_at": iso(doc.get("created_at")),
+    }
+
+
+def lyrics_set_to_dict(doc: dict, rows_for_derived: list[dict] | None = None) -> dict:
+    """A collection of saved lookups. Shaped like playlist_to_dict, and derived
+    the same way: the caller fetches the members, this counts and covers them."""
+    ids = doc.get("lyrics_ids") or []
+    by_id = {str(r["_id"]): r for r in (rows_for_derived or [])}
+    ordered = [by_id[i] for i in ids if i in by_id]
+    cover = next(((r.get("video") or {}).get("thumbnail") for r in ordered if (r.get("video") or {}).get("thumbnail")), None)
+
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name"),
+        "description": doc.get("description", ""),
+        "lyrics_ids": ids,
+        "item_count": len(ids),
+        # How many of them have a reading, which is the thing that cost money.
+        "read_count": sum(1 for r in ordered if r.get("meaning")),
         "cover": cover,
         "created_at": iso(doc.get("created_at")),
         "updated_at": iso(doc.get("updated_at")),

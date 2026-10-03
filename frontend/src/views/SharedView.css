@@ -1,0 +1,224 @@
+/* The home page's opening block: hello, what this is, and one thing to do.
+   A .card surface rather than a tinted or gradient panel — the gradient is
+   rationed to the wordmark, the primary button and the player's progress fill
+   (docs/DESIGN.md), and a hero is exactly the kind of place that quietly spends
+   an accent it hasn't earned. The page title's gradient text is the accent here,
+   and it's enough. */
+.home-hero {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px 24px 22px;
+  margin-bottom: 30px;
+}
+
+.home-greeting {
+  margin-bottom: 8px;
+}
+
+/* ---- the three doors ---- */
+
+/* Equal weight, because they are three ways to do the same thing and the app
+   has no opinion about which one you came for. Auto-fit rather than a fixed
+   three columns: at tablet widths two-up with one under reads better than three
+   squeezed, and on a phone they stack. */
+.home-doors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.home-door {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.home-door:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent);
+}
+
+.home-door-icon {
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.home-door-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-door-line {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ---- your own recent work ---- */
+
+.home-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+a.home-row:hover {
+  background: var(--hover);
+}
+
+/* The artwork is the play button on a song row, which is where the hand goes
+   anyway — and it keeps a second control off a row that is mostly title. */
+.home-row-art {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  padding: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--placeholder);
+  cursor: pointer;
+}
+
+.home-row-art.as-thumb {
+  width: 60px;
+  height: 34px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.home-row-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-row-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  /* A scrim, like Modal's — black with alpha rather than a token, which is the
+     one colour in this app that isn't a surface. --bg hardcoded here would be a
+     theme colour spelled out, which is the thing the rule is actually about. */
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+}
+
+.home-row-art:hover .home-row-play,
+.home-row-art:focus-visible .home-row-play {
+  opacity: 1;
+}
+
+.home-row-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-row-main b {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-row-main:hover b {
+  color: var(--accent);
+}
+
+.home-about {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  /* A measure, not the full width of a desktop content column — a line that
+     runs the whole way across is read twice or not at all. */
+  max-width: 62ch;
+  margin: 0;
+}
+
+.home-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.home-actions-note {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ---- the shared feed below it ---- */
+
+.home-section {
+  margin-bottom: 30px;
+}
+
+.home-section:last-child {
+  margin-bottom: 0;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* The 12px uppercase section head from the type ladder. It divides the page
+   without competing with the greeting above it — there is one h1 here, and the
+   greeting is it. */
+.section-head {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.home-invite {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  max-width: 62ch;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .home-hero {
+    padding: 20px 16px 18px;
+    margin-bottom: 24px;
+  }
+  .home-actions {
+    margin-top: 16px;
+  }
+  .home-doors {
+    margin-bottom: 24px;
+  }
+  /* Side by side these wrap to two cramped lines on a phone; stacked, the
+     button keeps a full-width target and the note reads as one sentence. */
+  .home-actions .btn {
+    flex: 1 1 auto;
+  }
+  .home-actions-note {
+    flex: 1 1 100%;
+  }
+}

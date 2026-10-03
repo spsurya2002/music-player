@@ -1,7 +1,9 @@
 .queue-panel {
   position: fixed;
   right: 0;
-  top: 0;
+  /* Below the top bar, which is fixed and sits above this — at top: 0 the
+     panel's own head was hidden behind it. */
+  top: var(--topbar-h);
   bottom: var(--player-h);
   width: 320px;
   background: var(--bg-elevated);

@@ -1,0 +1,277 @@
+/* The three Lyrics pages: finding, the one you are reading, and the library.
+   The spread itself is LyricsBook.css and the chrome around it LyricsBits.css;
+   this is the frame each page puts around those. */
+
+/* ---- finding ---- */
+
+.lyrics-search {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.lyrics-search input {
+  flex: 1;
+  min-width: 0;
+}
+
+.lyrics-search .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Three taps that show what the box accepts: two names and a link. */
+.lyrics-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.lyrics-recent {
+  margin-top: 26px;
+}
+
+/* ---- the lookup you are reading ---- */
+
+.lyrics-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+/* 16:9 at the 6px radius docs/DESIGN.md gives video thumbnails, so it matches
+   the YouTube rows elsewhere rather than the square song artwork. */
+.lyrics-thumb {
+  width: 112px;
+  height: 63px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--placeholder);
+  flex-shrink: 0;
+}
+
+/* Sits with the icon buttons at the end of the header, but worded — playing
+   the song is the thing people reach for most on this page. */
+.lyrics-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.lyrics-head-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.lyrics-head-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.lyrics-head-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- rows, shared by the recent list and the library ---- */
+
+.lyrics-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.lyrics-row:hover {
+  background: var(--hover);
+}
+
+.lyrics-row-thumb {
+  width: 54px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--placeholder);
+  flex-shrink: 0;
+}
+
+.lyrics-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.lyrics-row-main b {
+  display: block;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  /* The label goes, the icon stays — the box is what matters at this width. */
+  .lyrics-search-label {
+    display: none;
+  }
+
+  .lyrics-head {
+    gap: 10px;
+  }
+
+  .lyrics-thumb {
+    width: 72px;
+    height: 40px;
+  }
+
+  .lyrics-head-title {
+    font-size: 19px;
+  }
+}
+
+/* ---- collections ---- */
+
+.lyrics-sets {
+  margin-bottom: 26px;
+}
+
+/* Same two-up-then-wrap grid as the playlist cards, so the two libraries read
+   as siblings rather than as two people's work. */
+.lyrics-set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.lyrics-set {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.lyrics-set:hover {
+  background: var(--bg-elevated);
+}
+
+.lyrics-set-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 9px;
+  background: var(--placeholder);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.lyrics-set-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lyrics-set-name {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyrics-set-sub {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* A row in the add-to-collection checklist. */
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick-row:hover {
+  background: var(--hover);
+}
+
+.pick-row.on {
+  color: var(--accent);
+}
+
+.pick-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The built-in All card. Marked by its accent border rather than a badge: it is
+   first in the grid and the only one with a border, which is enough to read as
+   "this one is different" without a word spent on it. */
+.lyrics-set-all {
+  border-color: rgba(214, 51, 108, 0.35);
+}
+
+.lyrics-set-all .lyrics-set-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+/* The question a fresh search has to answer before it joins the library.
+   Shaped like .share-toggle in views.css — the same bar of a sentence and the
+   buttons that settle it — and tinted, because unlike that one this is asking
+   rather than reporting. */
+.lyrics-keep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(214, 51, 108, 0.4);
+  border-radius: 10px;
+  background: rgba(214, 51, 108, 0.1);
+  margin-top: 16px;
+}
+
+.lyrics-keep-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.lyrics-keep-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.lyrics-keep-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.lyrics-keep .btn {
+  flex: none;
+}
+
+@media (max-width: 480px) {
+  .lyrics-keep {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

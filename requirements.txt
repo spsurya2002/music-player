@@ -16,3 +16,8 @@ mutagen>=1.47
 # faster-whisper downloads ~1 GB of model on its first run.
 faster-whisper>=1.0
 pyacoustid>=1.3         # only does anything when ACOUSTID_API_KEY is also set
+
+# Google sign-in: verifies the ID token the browser gets from Google Identity
+# Services against Google's public keys, locally. Without it the server still
+# runs — the login screen just says sign-in isn't configured.
+google-auth>=2.30

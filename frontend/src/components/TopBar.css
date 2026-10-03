@@ -1,0 +1,214 @@
+/* The bar across the top. Fixed, full width, above the rail — so the rail can
+   collapse under it without the brand moving, which is what makes the toggle
+   feel like it belongs to the rail rather than to the page. */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* ---- search ---- */
+
+/* Centred and capped rather than filling the bar: a search field as wide as a
+   1440px screen reads as a URL bar, and the results list under it would be a
+   kilometre of mostly-empty row. */
+.topbar-search {
+  position: relative;
+  flex: 1;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-search-spacer {
+  flex: 1;
+}
+
+.topbar-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.topbar-search input[type="search"] {
+  width: 100%;
+  padding-left: 36px;
+  border-radius: 20px;
+}
+
+.topbar-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.topbar-results button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13.5px;
+  width: 100%;
+}
+
+.topbar-results button:hover {
+  background: var(--hover);
+}
+
+.topbar-results img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--placeholder);
+  flex: none;
+}
+
+.topbar-result-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar-result-text b {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-result-text .via {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.topbar-results-all {
+  border-top: 1px solid var(--line) !important;
+  border-radius: 0 0 8px 8px !important;
+  margin-top: 4px;
+  padding-top: 10px !important;
+  color: var(--muted) !important;
+  font-size: 12.5px !important;
+}
+
+/* ---- right side ---- */
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.menu-item-sub.out {
+  color: var(--err);
+}
+
+/* ---- phones ---- */
+
+@media (max-width: 760px) {
+  .topbar {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  /* The rail is bottom tabs at this width, so there is nothing to toggle. */
+  .topbar-toggle {
+    display: none;
+  }
+
+  /* The search gets the whole middle; the word next to + goes, the icon stays. */
+  .topbar-search {
+    max-width: none;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+}
+
+/* Below this the brand wordmark and a usable search field cannot both fit. The
+   search is the one you reach for; the brand is also the Home tab. */
+@media (max-width: 420px) {
+  .topbar-brand {
+    display: none;
+  }
+}
+
+/* The badge on the avatar: a count for an admin, a bare dot for a reply you
+   haven't read. --accent-2 so it reads as "new" rather than as an error, and
+   it is an <i> so a phone rule that hides labels can't take it too. */
+.topbar-avatar {
+  position: relative;
+  display: inline-flex;
+}
+
+.topbar-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  min-width: 9px;
+  height: 9px;
+  padding: 0 3px;
+  border-radius: 20px;
+  background: var(--accent-2);
+  border: 2px solid var(--bg-elevated);
+  color: var(--bg);
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Which library a group of hits came from. Uppercase head at the same size the
+   rest of the app uses for one. */
+.topbar-results-head {
+  padding: 8px 8px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}

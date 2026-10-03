@@ -24,7 +24,9 @@ URL_RE = re.compile(
     r"^https?://(www\.)?instagram\.com/(reel|reels|p|tv|share)/[\w\-./]+", re.I
 )
 
-# token -> {path, info, url, workdir}; process-memory only, dies with a restart.
+# token -> {path, info, url, workdir, user_id}; process-memory only, dies with a
+# restart. The user_id is who extracted it: a token is a claim on a temp file
+# that will become a row in someone's library, so it is only redeemable by them.
 _tokens: dict[str, dict] = {}
 _lock = threading.Lock()
 
@@ -106,7 +108,7 @@ class ExtractError(Exception):
         self.status = status
 
 
-def _download_sync(url: str) -> dict:
+def _download_sync(url: str, user_id: str) -> dict:
     """Blocking yt-dlp download; run via asyncio.to_thread. Returns the token payload."""
     job = uuid.uuid4().hex
     workdir = DOWNLOAD_DIR / job
@@ -155,6 +157,7 @@ def _download_sync(url: str) -> dict:
     }
     with _lock:
         _tokens[token] = {
+            "user_id": user_id,
             "path": final,
             "info": info,
             "url": url,
@@ -166,13 +169,16 @@ def _download_sync(url: str) -> dict:
     return payload
 
 
-async def extract(url: str) -> dict:
-    return await asyncio.to_thread(_download_sync, url)
+async def extract(url: str, user_id: str) -> dict:
+    return await asyncio.to_thread(_download_sync, url, user_id)
 
 
-def get_token(token: str) -> dict | None:
+def get_token(token: str, user_id: str) -> dict | None:
+    """Someone else's token is not found, rather than forbidden — there's nothing
+    to tell a caller about an extraction that isn't theirs."""
     with _lock:
-        return _tokens.get(token)
+        job = _tokens.get(token)
+    return job if job and job.get("user_id") == user_id else None
 
 
 def set_match(token: str, match: dict) -> None:

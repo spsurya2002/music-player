@@ -1,0 +1,88 @@
+/* The box, and the rating under it. Stars are the one place in the app with a
+   control this size: a row of 16px icons reads as decoration rather than as
+   something to press, and this one has to be unmistakably pressable. */
+
+/* Under the box, not over it: the words are what you came to write, and the
+   stars are the summary you give once you have said it. */
+.feedback-rate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.feedback-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.feedback-star {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  /* --muted, not --placeholder: an unlit star has to read as something you
+     press. #22232d on the modal's #1f2029 is invisible, which made the whole
+     control — and the Send button waiting on it — look broken. */
+  color: var(--muted);
+  display: inline-flex;
+  line-height: 0;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.feedback-star.on {
+  color: var(--accent-2);
+}
+
+.feedback-star:hover {
+  transform: scale(1.08);
+}
+
+/* What the rating you are pointing at means. Fixed height so the form does
+   not jump by a line as you sweep across the stars. */
+.feedback-says {
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 19px;
+}
+
+.feedback-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
+.feedback-text {
+  width: 100%;
+  resize: vertical;
+}
+
+.feedback-count {
+  margin-top: 5px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Below the minimum it counts up to it instead of down from the ceiling —
+   2000 is not the number anybody is working against here. */
+.feedback-count.short {
+  color: var(--accent);
+}
+
+.feedback-done {
+  display: flex;
+  gap: 10px;
+  color: var(--ok);
+}
+
+.feedback-done p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.55;
+}

@@ -190,3 +190,162 @@ export const RefreshIcon = (p) => (
     <path d="M20 5v6h-6" />
   </Svg>
 );
+
+export const SignOutIcon = (p) => (
+  <Svg {...p}>
+    <path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3" />
+    <path d="M10 8l-4 4 4 4M6 12h9" />
+  </Svg>
+);
+
+export const UserIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8.5" r="3.5" />
+    <path d="M5 20c.7-3.5 3.5-5.5 7-5.5s6.3 2 7 5.5" />
+  </Svg>
+);
+
+export const InboxIcon = (p) => (
+  <Svg {...p}>
+    <path d="M3 13h4l2 3h6l2-3h4" />
+    <path d="M5.5 5h13l2.5 8v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4l2.5-8z" />
+  </Svg>
+);
+
+export const DownloadIcon = (p) => (
+  <Svg {...p}>
+    <path d="M12 4v11" />
+    <path d="M7 10.5l5 5 5-5" />
+    <path d="M5 20h14" />
+  </Svg>
+);
+
+// Sharing is public-or-not, so the icon is a globe rather than a share arrow —
+// an arrow suggests sending it to someone in particular, which this isn't.
+export const GlobeIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17" />
+    <path d="M12 3.5c2.2 2.4 3.3 5.4 3.3 8.5s-1.1 6.1-3.3 8.5c-2.2-2.4-3.3-5.4-3.3-8.5S9.8 5.9 12 3.5z" />
+  </Svg>
+);
+
+export const LockIcon = (p) => (
+  <Svg {...p}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" />
+    <path d="M8 10.5V7.5a4 4 0 018 0v3" />
+  </Svg>
+);
+
+export const CopyIcon = (p) => (
+  <Svg {...p}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M15 5.5H6a2 2 0 00-2 2V15" />
+  </Svg>
+);
+
+// A chain link — "the thing you paste", as opposed to the file you upload.
+// Distinct from ExternalLinkIcon, which means "this leaves the app".
+export const LinkIcon = (p) => (
+  <Svg {...p}>
+    <path d="M10 13.5a4 4 0 006 .5l2.5-2.5a4 4 0 00-5.7-5.7L11.5 7" />
+    <path d="M14 10.5a4 4 0 00-6-.5L5.5 12.5a4 4 0 005.7 5.7L12.5 17" />
+  </Svg>
+);
+
+// The admin tier of the rail.
+export const ShieldIcon = (p) => (
+  <Svg {...p}>
+    <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" />
+    <path d="M9 12l2 2 4-4" />
+  </Svg>
+);
+
+// Plan & limits — a gauge, because what it shows is how much is left.
+export const GaugeIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4.5 17a8.5 8.5 0 1 1 15 0" />
+    <path d="M12 13l3.5-4" />
+    <circle cx="12" cy="13" r="1.2" />
+  </Svg>
+);
+
+// Lyrics: lines of text with one left short, the shape of a written verse.
+// Not a music note — the player already owns that idea, and this is about words.
+export const LyricsIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 6h16" />
+    <path d="M4 10h16" />
+    <path d="M4 14h12" />
+    <path d="M4 18h7" />
+  </Svg>
+);
+
+// The rail toggle. Three bars, because that is the one icon everybody already
+// reads as "the menu" without a label.
+export const MenuIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </Svg>
+);
+
+// Home. A house rather than the globe this route used to carry: the globe said
+// "public", but the page it leads to is the start of the app, not a section.
+export const HomeIcon = (p) => (
+  <Svg {...p}>
+    <path d="M3 10.5 12 3l9 7.5" />
+    <path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5" />
+  </Svg>
+);
+
+// Disclosure, for the rail's collapsible section and the top bar's menus.
+// Rotated by CSS when open, so one shape covers both states.
+export const ChevronIcon = (p) => (
+  <Svg {...p}>
+    <path d="M9 6l6 6-6 6" />
+  </Svg>
+);
+
+
+// Half-shaded circle — the usual mark for opacity. The shading is a filled
+// half rather than a hatch, which turns to mud at 14px.
+export const OpacityIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+// A star that can be hollow or filled, for the rating picker and for showing
+// a rating back. Filled is the state, so it is a prop rather than two icons.
+export const StarIcon = ({ filled, ...p }) => (
+  <Svg {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="M12 3.6l2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4-3.9 5.6-.8z" />
+  </Svg>
+);
+
+// Speech bubble with a tail — feedback, as opposed to the inbox tray.
+export const FeedbackIcon = (p) => (
+  <Svg {...p}>
+    <path d="M20 4H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z" />
+  </Svg>
+);
+
+// Jump back / forward by a fixed few seconds. The arc with an arrowhead is the
+// usual mark; the number of seconds is written in the button beside it rather
+// than inside the glyph, so one pair of icons serves any step.
+export const Back3Icon = (p) => (
+  <Svg {...p}>
+    <path d="M3.5 9.5A9 9 0 1 1 3 13" />
+    <path d="M3 4.5v5h5" />
+  </Svg>
+);
+
+export const Forward3Icon = (p) => (
+  <Svg {...p}>
+    <path d="M20.5 9.5A9 9 0 1 0 21 13" />
+    <path d="M21 4.5v5h-5" />
+  </Svg>
+);

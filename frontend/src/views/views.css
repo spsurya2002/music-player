@@ -36,7 +36,7 @@
   border-top: 1px solid var(--line);
 }
 
-/* ---- identify a file (MP3 to link) ---- */
+/* ---- Add music -> From a file ---- */
 
 .dropzone {
   display: flex;
@@ -310,6 +310,9 @@
 
 .playlist-song-row .song-row {
   flex: 1;
+  /* Without this a flex child won't shrink below its content, and one long
+     title made the whole page scroll sideways. */
+  min-width: 0;
 }
 
 .drag-grip {
@@ -323,4 +326,218 @@
 
 .empty-state {
   color: var(--muted);
+}
+
+/* Inbox — one shared reel and where it got to. The row is a .song block with
+   the state pushed to the right, so a long caption-derived title truncates
+   instead of shoving the badge off the edge. */
+.ingest-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ingest-main {
+  min-width: 0;
+  flex: 1;
+}
+.ingest-main b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ingest-side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .ingest-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ingest-main {
+    width: 100%;
+  }
+}
+
+/* ---- phones ---------------------------------------------------------------
+   Everything below applies at the width where the rail turns into bottom tabs;
+   the desktop layout above it is untouched. */
+@media (max-width: 760px) {
+  /* Song and playlist headers stack. Side by side, the artwork took 158px of a
+     328px row and the title was left a column a few letters wide. */
+  .detail-head,
+  .playlist-detail-head {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+  }
+  .detail-art {
+    width: 200px;
+    height: 200px;
+  }
+  .playlist-detail-cover,
+  .playlist-detail-cover-empty {
+    width: 220px;
+    height: 165px;
+  }
+  .detail-meta {
+    width: 100%;
+  }
+  /* The title gets the whole line; its tag and the pencil sit centred under it
+     instead of competing with it for width. */
+  .detail-title-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .detail-title {
+    flex-basis: 100%;
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  .detail-sub {
+    font-size: 12.5px;
+  }
+
+  /* Four actions as a tidy 2×2 of equal buttons rather than a ragged wrap. */
+  .detail-head .detail-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .detail-head .detail-actions .btn {
+    padding: 11px 8px;
+    font-size: 13.5px;
+  }
+  /* Play all leads; the loop switch sits beside it; delete goes last. */
+  .playlist-detail-head .detail-actions {
+    justify-content: center;
+  }
+  .playlist-detail-head .detail-actions .btn:first-child {
+    flex: 1;
+  }
+
+  /* Editing a title happens in a left-aligned form, even in a centred header. */
+  .detail-meta form {
+    text-align: left;
+  }
+
+  .detail-section {
+    margin-top: 22px;
+  }
+  .insta-link {
+    font-size: 12.5px;
+  }
+
+  /* Two cards a row — one card to a row made each cover a 300px slab. */
+  .playlist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* A playlist row carries three buttons of its own. On a phone, remove stays;
+     add-to-playlist and download are a tap away on the song's page. */
+  .playlist-song-row {
+    gap: 2px;
+  }
+  .playlist-song-row > .icon-btn:not(:last-child) {
+    display: none;
+  }
+  .drag-grip {
+    padding: 0 2px;
+  }
+}
+
+/* ---- sharing ---- */
+
+/* "Shared" next to a playlist's name — a state, so a tinted pill on the accent
+   rather than a button. Same pill ladder as .source-tag. */
+.shared-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: rgba(214, 51, 108, 0.12);
+  border: 1px solid rgba(214, 51, 108, 0.35);
+  color: var(--accent);
+}
+
+/* Attribution under the title of somebody else's playlist. */
+.shared-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.shared-count {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* The song rows on a shared playlist don't open a song page — the page behind
+   them is the owner's, with their edit controls on it — so the row reads as
+   text rather than offering a click it won't honour. */
+.song-row-main.as-text {
+  cursor: default;
+}
+
+/* The share switch on your own playlist page. */
+.share-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  margin-top: 18px;
+}
+
+.share-toggle.on {
+  border-color: rgba(214, 51, 108, 0.4);
+  background: rgba(214, 51, 108, 0.08);
+}
+
+.share-toggle-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.share-toggle-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.share-toggle.on .share-toggle-title {
+  color: var(--accent);
+}
+
+.share-toggle-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+@media (max-width: 480px) {
+  .share-toggle {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
 }

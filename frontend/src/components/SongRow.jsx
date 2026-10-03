@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { PlayIcon, PauseIcon, MoreIcon, PlusIcon, TrashIcon, ExternalLinkIcon } from "./icons";
+import * as api from "../api/client";
+import { PlayIcon, PauseIcon, MoreIcon, PlusIcon, TrashIcon, ExternalLinkIcon, DownloadIcon, QueueIcon } from "./icons";
 import SourceTag from "./SourceTag";
 import { fmtDur, songTitle } from "../utils/format";
 import "./SongRow.css";
 
-export default function SongRow({ song, index, active, playing, onPlay, onOpen, onAddToPlaylist, onDelete }) {
+export default function SongRow({ song, index, active, playing, onPlay, onOpen, onAddToQueue, onAddToPlaylist, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -56,12 +57,26 @@ export default function SongRow({ song, index, active, playing, onPlay, onOpen, 
               type="button"
               onClick={() => {
                 setMenuOpen(false);
+                onAddToQueue();
+              }}
+            >
+              <QueueIcon size={15} />
+              Add to queue
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
                 onAddToPlaylist();
               }}
             >
               <PlusIcon size={15} />
               Add to playlist
             </button>
+            <a href={api.songDownloadUrl(song.id)} download onClick={() => setMenuOpen(false)}>
+              <DownloadIcon size={15} />
+              Download MP3
+            </a>
             <button
               type="button"
               className="danger"

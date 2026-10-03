@@ -15,9 +15,24 @@
   --field: #12131a;       /* inset controls: inputs, selects — below --card */
   --placeholder: #22232d; /* artwork/thumbnail backing before an image loads */
   --sidebar: 220px;
+  /* Collapsed rail: icon over label, the width YouTube uses for the same idea.
+     Wide enough that a one-word label fits under a 22px icon without clipping. */
+  --sidebar-mini: 72px;
+  --topbar-h: 56px;
   --player-h: 84px;
 
   --gradient: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+/* Phones get a mini player (see PlayerBar.css). The shell's bottom padding and
+   the queue panel are both sized off this token, so they follow on their own. */
+@media (max-width: 760px) {
+  :root {
+    --player-h: 64px;
+    /* The rail is gone at this width (bottom tabs instead), so the only
+       fixed strip left above the content is the top bar. */
+    --topbar-h: 52px;
+  }
 }
 
 * {

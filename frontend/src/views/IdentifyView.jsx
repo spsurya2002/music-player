@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Msg from "../components/Msg";
 import YouTubeResultRow from "../components/YouTubeResultRow";
+import { ErrorMsg, QuotaNote } from "../components/Quota";
+import { emitLimitsChanged } from "../utils/bus";
 import { FileAudioIcon } from "../components/icons";
+import AddTabs from "../components/AddTabs";
 import { fmtSize } from "../utils/format";
 import "./views.css";
 
@@ -17,7 +20,7 @@ const JOB_KEY = "identify-job";
 export default function IdentifyView() {
   const [file, setFile] = useState(null);
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null); // the ApiError, so a used-up limit can say so
   const [jobId, setJobId] = useState(() => sessionStorage.getItem(JOB_KEY) || "");
   const [status, setStatus] = useState(null); // { state, file, log, error, result }
 
@@ -55,7 +58,11 @@ export default function IdentifyView() {
         if (cancelled) return;
         setStatus(data);
         if (data.state === "running") timer = setTimeout(tick, POLL_MS);
-        else sessionStorage.removeItem(JOB_KEY);
+        else {
+          sessionStorage.removeItem(JOB_KEY);
+          // The use held at upload is kept or given back as the job ends.
+          emitLimitsChanged();
+        }
       } catch (err) {
         if (cancelled) return;
         // A 404 means the server restarted and took the job with it.
@@ -83,7 +90,7 @@ export default function IdentifyView() {
     if (!chosen) return;
     setFile(chosen);
     setStarting(true);
-    setError("");
+    setError(null);
     setStatus(null);
     setSaveMsg(null);
     setSavedSongId("");
@@ -92,9 +99,10 @@ export default function IdentifyView() {
       sessionStorage.setItem(JOB_KEY, data.job);
       setJobId(data.job);
     } catch (err) {
-      setError(err.message || "Could not read that file.");
+      setError(err);
     } finally {
       setStarting(false);
+      emitLimitsChanged();
     }
   }, []);
 
@@ -138,7 +146,7 @@ export default function IdentifyView() {
   function startOver() {
     forget();
     setFile(null);
-    setError("");
+    setError(null);
     setSaveMsg(null);
     setSavedSongId("");
     setQuery("");
@@ -160,11 +168,13 @@ export default function IdentifyView() {
 
   return (
     <div className="view">
-      <h1 className="page-title">MP3 to link</h1>
+      <h1 className="page-title">Add a file</h1>
       <p className="sub">
         Upload a track and get the song behind it, plus its YouTube link — for audio that came from
         somewhere other than a reel. Saved files join All songs, tagged MP3.
       </p>
+
+      <AddTabs />
 
       <div className="card">
         <label className={"dropzone" + (file ? " has-file" : "") + (busy ? " is-busy" : "")}>
@@ -194,14 +204,18 @@ export default function IdentifyView() {
         <div className="hint">
           It starts as soon as you pick a file: fingerprints the audio, then falls back to the
           file's own tags and to what it can hear being sung. A cover can take a few minutes.
+          Only a file that comes back with a YouTube match counts against your limit.
         </div>
+        <QuotaNote feature="file" />
 
         {error && (
           <>
-            <Msg kind="err">{error}</Msg>
-            <button type="button" className="btn ghost small" style={{ marginTop: 10 }} onClick={() => start(file)}>
-              Try again
-            </button>
+            <ErrorMsg error={error} />
+            {!api.isQuotaError(error) && (
+              <button type="button" className="btn ghost small" style={{ marginTop: 10 }} onClick={() => start(file)}>
+                Try again
+              </button>
+            )}
           </>
         )}
         {status && status.state === "error" && (

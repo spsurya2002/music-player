@@ -1,0 +1,77 @@
+/* The small line under a form that spends a use. Muted until it runs out, then
+   the .msg.err tint — the same colour the refusal itself will come back in. */
+.quota-note {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.quota-note.out {
+  color: var(--err);
+}
+.quota-note.out .ext-link,
+.msg.err .quota-link {
+  color: var(--err);
+}
+
+/* One feature's allowance. A .card with a thin bar; the bar is a solid accent,
+   not the gradient — the gradient is rationed to the brand mark, the primary
+   button and the player's progress (see docs/DESIGN.md). */
+.quota-meter {
+  padding: 16px;
+}
+.quota-meter.compact {
+  padding: 14px;
+}
+.quota-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.quota-meter-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.quota-meter-count {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.quota-meter.compact .quota-meter-count {
+  font-size: 17px;
+}
+.quota-meter-count.out {
+  color: var(--err);
+}
+.quota-bar {
+  height: 6px;
+  border-radius: 20px;
+  background: var(--placeholder);
+  overflow: hidden;
+  margin: 10px 0 8px;
+}
+.quota-bar-fill {
+  height: 100%;
+  border-radius: 20px;
+  background: var(--accent);
+}
+.quota-bar-fill.out {
+  background: var(--err);
+}
+.quota-meter-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.quota-meters {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (max-width: 520px) {
+  .quota-meters {
+    grid-template-columns: 1fr;
+  }
+}

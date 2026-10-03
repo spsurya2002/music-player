@@ -1,3 +1,7 @@
+/* The frame: a fixed top bar, a fixed rail under it, the content between them
+   and the player bar. Everything positions off the three tokens in theme.css
+   (--topbar-h, --sidebar, --player-h) so one value moves all of it. */
+
 .shell {
   min-height: 100vh;
 }
@@ -5,15 +9,42 @@
 .shell-content {
   margin-left: var(--sidebar);
   padding: 24px;
+  padding-top: calc(var(--topbar-h) + 24px);
   padding-bottom: calc(var(--player-h) + 24px);
+  /* Not instant, because the rail toggling is a deliberate act and the content
+     sliding to meet it is the feedback that it worked. */
+  transition: margin-left 0.15s ease;
+}
+
+.shell.rail-mini .shell-content {
+  margin-left: var(--sidebar-mini);
 }
 
 @media (max-width: 760px) {
-  .shell-content {
+  /* The rail is gone and MobileTabs sits at the bottom, so the content clears
+     the top bar above and the tabs plus the player below.
+
+     The second selector is not a duplicate. A media query adds no specificity,
+     so a bare `.shell-content` here (0,1,0) loses to `.shell.rail-mini
+     .shell-content` (0,3,0) above — and a phone whose rail was last left
+     collapsed kept that 72px margin, with no rail there to explain it. That is
+     what pushed the whole app sideways. */
+  .shell-content,
+  .shell.rail-mini .shell-content {
     margin-left: 0;
     padding: 16px;
+    padding-top: calc(var(--topbar-h) + 16px);
     padding-bottom: calc(var(--player-h) + 56px + 16px);
   }
+}
+
+/* The moment before we know who's here: /api/auth/me is in flight, and showing
+   either the shell or the login screen would be a guess. */
+.boot {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .view {

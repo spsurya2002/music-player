@@ -7,6 +7,14 @@ function isTyping(target) {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
+// Somewhere that wants the arrow keys for itself — the lyrics book turns pages
+// with them. Opting in by attribute rather than by stopping propagation,
+// because the global listener is on `document` and the order of those two is
+// not something a component should have to reason about.
+function ownsArrows(target) {
+  return Boolean(target?.closest?.("[data-arrow-keys]"));
+}
+
 // Space toggles play, arrows seek 5s, Escape closes the queue drawer (modals
 // handle their own Escape). Skipped whenever a form field has focus.
 export default function useGlobalShortcuts() {
@@ -19,9 +27,9 @@ export default function useGlobalShortcuts() {
         e.preventDefault();
         togglePlay();
       } else if (e.key === "ArrowRight") {
-        seekBy(5);
+        if (!ownsArrows(document.activeElement)) seekBy(5);
       } else if (e.key === "ArrowLeft") {
-        seekBy(-5);
+        if (!ownsArrows(document.activeElement)) seekBy(-5);
       } else if (e.key === "Escape" && queueOpen) {
         toggleQueue();
       }

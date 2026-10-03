@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api/client";
+import { onSignedOut } from "../utils/bus";
 
 const PlayerContext = createContext(null);
 
@@ -20,7 +21,14 @@ export function PlayerProvider({ children }) {
   const [loopMode, setLoopModeState] = useState("off");
   const [activePlaylistId, setActivePlaylistId] = useState(null);
   const [queueOpen, setQueueOpen] = useState(false);
+  // The YouTube player is always the corner dock. It used to be a modal, which
+  // covered the thing you opened it to compare against or read alongside — the
+  // two situations it is actually used in.
   const [ytModal, setYtModal] = useState({ open: false, videoId: null, title: "" });
+  // The docked player hands its pause() up here so starting an MP3 can silence
+  // it. Nothing else in the app can reach inside an iframe to do that, and two
+  // sounds at once is the one thing the player must never allow.
+  const ytPauseRef = useRef(null);
   const [playerError, setPlayerError] = useState("");
 
   const lastPlayedRef = useRef(null); // song id we already fired /played for, this "load"
@@ -37,8 +45,14 @@ export function PlayerProvider({ children }) {
     const onLoaded = () => setDuration(audio.duration || 0);
     const onPlay = () => {
       setPlaying(true);
-      // The two players must never run at once — audio starting wins.
-      setYtModal((m) => (m.open ? { open: false, videoId: null, title: "" } : m));
+      // The two players must never run at once — audio starting wins. The dock
+      // only falls silent and stays put, ready to be resumed when the song
+      // finishes, rather than closing out from under you.
+      try {
+        ytPauseRef.current?.();
+      } catch {
+        // The iframe went away mid-call; nothing to pause.
+      }
     };
     const onPause = () => setPlaying(false);
     const onEnded = () => handleEnded();
@@ -63,11 +77,41 @@ export function PlayerProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Somebody signed out. The audio element lives above the router, so nothing
+  // else would stop it — and every URL in the queue belongs to a library the
+  // next request won't be allowed to read.
+  useEffect(
+    () =>
+      onSignedOut(() => {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute("src");
+          audio.load();
+        }
+        lastPlayedRef.current = null;
+        setQueue([]);
+        setCurrentIndex(-1);
+        setPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+        setActivePlaylistId(null);
+        setQueueOpen(false);
+        setYtModal({ open: false, videoId: null, title: "" });
+        setPlayerError("");
+      }),
+    []
+  );
+
   // Load whichever song is "current" whenever the index/queue changes.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
-    const src = api.songAudioUrl(currentSong.id);
+    // A song from somebody's shared playlist streams from the shared route and
+    // says so in `audio_url` — the library's own route scopes to the signed-in
+    // user and would 404 on it. Every Song the API returns carries the field,
+    // so this is the general case, not a special one.
+    const src = currentSong.audio_url || api.songAudioUrl(currentSong.id);
     if (audio.src.indexOf(src) === -1) {
       setPlayerError("");
       // Seed the clock from the saved metadata rather than waiting for
@@ -81,10 +125,13 @@ export function PlayerProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, queue]);
 
-  // Fire the "played" beacon once per track start.
+  // Fire the "played" beacon once per track start. Not for a shared song: the
+  // play count belongs to its owner's library, and a stranger listening is not
+  // their listening history — the call would 404 anyway.
   useEffect(() => {
     if (!currentSong) return;
     if (!playing) return;
+    if (currentSong.shared) return;
     if (lastPlayedRef.current === currentSong.id) return;
     lastPlayedRef.current = currentSong.id;
     api.markPlayed(currentSong.id).catch(() => {});
@@ -131,6 +178,10 @@ export function PlayerProvider({ children }) {
     lastPlayedRef.current = null;
     setQueue(songs);
     setActivePlaylistId(opts.playlistId ?? null);
+    // Somebody else's shared playlist: it still sets activePlaylistId, because
+    // that is what highlights the playing row on their page — but the loop
+    // setting is theirs to keep, so cycleLoop must not try to save into it.
+    activePlaylistSharedRef.current = Boolean(opts.shared);
     if (opts.loop) setLoopModeState(opts.loop);
     else if (!opts.playlistId) setLoopModeState("off");
     setCurrentIndex(startIndex);
@@ -144,14 +195,36 @@ export function PlayerProvider({ children }) {
     [playQueue]
   );
 
+  // Nothing is loaded, so there is nothing for a queue to come after — and
+  // nowhere to see it either: the player bar shows "Nothing playing" and hides
+  // its queue button until a song is current. So the first one added starts,
+  // rather than sitting in a drawer with no handle on it.
+  const startedIdle = useCallback(() => {
+    if (currentIndexRef.current >= 0) return false;
+    lastPlayedRef.current = null;
+    setCurrentIndex(0);
+    return true;
+  }, []);
+
   const playNext = useCallback((song) => {
+    const idle = startedIdle();
     setQueue((q) => {
-      if (currentIndexRef.current < 0) return [song];
+      if (idle) return [song];
       const copy = q.slice();
       copy.splice(currentIndexRef.current + 1, 0, song);
       return copy;
     });
-  }, []);
+  }, [startedIdle]);
+
+  // Onto the end, interrupting nothing — that is the whole difference from
+  // playSongNow, which throws the queue away. Takes one song or a whole
+  // playlist, and keeps the order it was given.
+  const addToQueue = useCallback((songs) => {
+    const added = (Array.isArray(songs) ? songs : [songs]).filter(Boolean);
+    if (added.length === 0) return;
+    startedIdle();
+    setQueue((q) => q.concat(added));
+  }, [startedIdle]);
 
   const currentIndexRef = useRef(currentIndex);
   useEffect(() => {
@@ -222,10 +295,12 @@ export function PlayerProvider({ children }) {
     setCurrentIndex(index);
   }, []);
 
+  const activePlaylistSharedRef = useRef(false);
+
   const cycleLoop = useCallback(() => {
     setLoopModeState((mode) => {
       const next = LOOP_CYCLE[mode];
-      if (activePlaylistIdRef.current) {
+      if (activePlaylistIdRef.current && !activePlaylistSharedRef.current) {
         api.updatePlaylist(activePlaylistIdRef.current, { loop: next }).catch(() => {});
       }
       return next;
@@ -243,14 +318,22 @@ export function PlayerProvider({ children }) {
 
   const toggleQueue = useCallback(() => setQueueOpen((v) => !v), []);
 
-  const openYoutube = useCallback((videoId, title = "") => {
+  // Never two sounds at once: opening it stops the MP3.
+  const dockYoutube = useCallback((videoId, title = "") => {
     const audio = audioRef.current;
     if (audio) audio.pause();
     setYtModal({ open: true, videoId, title });
   }, []);
 
   const closeYoutube = useCallback(() => {
+    ytPauseRef.current = null;
     setYtModal({ open: false, videoId: null, title: "" });
+  }, []);
+
+  // The YouTube component registers how to pause itself, and withdraws it when
+  // it goes.
+  const registerYoutubePause = useCallback((fn) => {
+    ytPauseRef.current = fn;
   }, []);
 
   const removeFromQueue = useCallback((index) => {
@@ -297,6 +380,7 @@ export function PlayerProvider({ children }) {
       playQueue,
       playSongNow,
       playNext,
+      addToQueue,
       togglePlay,
       seek,
       seekBy,
@@ -307,8 +391,9 @@ export function PlayerProvider({ children }) {
       cycleLoop,
       setLoopMode,
       toggleQueue,
-      openYoutube,
+      dockYoutube,
       closeYoutube,
+      registerYoutubePause,
       removeFromQueue,
       reorderQueue,
     }),
@@ -328,6 +413,7 @@ export function PlayerProvider({ children }) {
       playQueue,
       playSongNow,
       playNext,
+      addToQueue,
       togglePlay,
       seek,
       seekBy,
@@ -338,8 +424,9 @@ export function PlayerProvider({ children }) {
       cycleLoop,
       setLoopMode,
       toggleQueue,
-      openYoutube,
+      dockYoutube,
       closeYoutube,
+      registerYoutubePause,
       removeFromQueue,
       reorderQueue,
     ]

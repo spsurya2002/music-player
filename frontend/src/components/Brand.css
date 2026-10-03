@@ -1,0 +1,35 @@
+/* The logo: gradient tile + name. The tile is where the wordmark's share of the
+   gradient went — the name itself sits in plain text beside it, the way a
+   product logo reads, rather than as gradient-filled type. */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand:hover {
+  background: var(--hover);
+}
+
+.brand-mark {
+  flex: none;
+  display: inline-flex;
+  border-radius: 28%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(214, 51, 108, 0.3);
+}
+.brand-mark svg {
+  display: block;
+}
+
+.brand-word {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}

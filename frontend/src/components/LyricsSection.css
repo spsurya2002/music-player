@@ -1,0 +1,30 @@
+/* The section wrapper on a song page. Everything that renders a finished
+   lookup lives in LyricsBits.css and LyricsBook.css. */
+
+.lyrics-start {
+  margin-top: 12px;
+}
+
+/* The one place this section says "working". Matches .song so it lines up with
+   the empty state it replaces. */
+.lyrics-working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.lyrics-retry-hint:empty {
+  display: none;
+}
+
+.lyrics-retry-hint {
+  margin-top: 8px;
+}
+
+/* The way through to the full-width reading page, after everything the section
+   already showed — an offer, not a redirect. */
+.lyrics-open-full {
+  margin-top: 16px;
+}

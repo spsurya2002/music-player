@@ -1,6 +1,6 @@
 # Component reference
 
-The canonical CSS for every piece of Reel Audio's UI, plus recipes for extending it.
+The canonical CSS for every piece of Reelody's UI, plus recipes for extending it.
 Copy from here instead of re-deriving values; drift starts with a 12px radius where the
 rest of the page uses 10px.
 

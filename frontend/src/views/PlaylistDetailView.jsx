@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import * as api from "../api/client";
 import { usePlayer } from "../context/PlayerContext";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
+import QueueButton from "../components/QueueButton";
 import ConfirmModal from "../components/ConfirmModal";
 import Msg from "../components/Msg";
 import {
@@ -13,6 +14,9 @@ import {
   PlusIcon,
   CloseIcon,
   GripIcon,
+  DownloadIcon,
+  GlobeIcon,
+  LockIcon,
 } from "../components/icons";
 import { emitPlaylistsChanged } from "../utils/bus";
 import { fmtDur, songTitle } from "../utils/format";
@@ -39,6 +43,7 @@ export default function PlaylistDetailView() {
 
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
 
   const [dragIndex, setDragIndex] = useState(null);
 
@@ -92,6 +97,26 @@ export default function PlaylistDetailView() {
       setPlaylist((p) => ({ ...p, loop: prev }));
       if (isActivePlaylist) setLoopMode(prev);
       setActionError(err.message || "Could not change the loop setting.");
+    }
+  }
+
+  async function handleShare(next) {
+    const prev = playlist.is_public;
+    // Optimistic, like the loop toggle: a switch that waits for a round trip
+    // before moving reads as a switch that didn't work.
+    setPlaylist((p) => ({ ...p, is_public: next }));
+    setShareBusy(true);
+    setActionError("");
+    try {
+      const updated = await api.setPlaylistShared(id, next);
+      setPlaylist(updated);
+      // The Shared page and the playlists grid both show this.
+      emitPlaylistsChanged();
+    } catch (err) {
+      setPlaylist((p) => ({ ...p, is_public: prev }));
+      setActionError(err.message || "Could not change sharing for that playlist.");
+    } finally {
+      setShareBusy(false);
     }
   }
 
@@ -202,6 +227,7 @@ export default function PlaylistDetailView() {
               <PlayIcon size={16} style={{ marginRight: 6 }} />
               Play all
             </button>
+            <QueueButton songs={songs} label="Queue all" className="btn secondary" />
             <div className="loop-toggle">
               {LOOPS.map((mode) => (
                 <button
@@ -221,6 +247,35 @@ export default function PlaylistDetailView() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className={"share-toggle" + (playlist.is_public ? " on" : "")}>
+        <div className="share-toggle-text">
+          <div className="share-toggle-title">
+            {playlist.is_public ? <GlobeIcon size={15} /> : <LockIcon size={15} />}
+            {playlist.is_public ? "Shared publicly" : "Private"}
+          </div>
+          <div className="share-toggle-sub">
+            {playlist.is_public ? (
+              <>
+                Anyone signed in can find this on{" "}
+                <Link to="/">Shared</Link>, play it and take a copy. Your name and
+                picture are shown next to it.
+              </>
+            ) : (
+              "Only you can see this playlist."
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={playlist.is_public ? "btn secondary" : "btn"}
+          onClick={() => handleShare(!playlist.is_public)}
+          disabled={shareBusy}
+        >
+          {shareBusy && <span className="spin" />}
+          {playlist.is_public ? "Stop sharing" : "Share"}
+        </button>
       </div>
 
       {actionError && <Msg kind="err">{actionError}</Msg>}
@@ -266,6 +321,15 @@ export default function PlaylistDetailView() {
                 <button type="button" className="icon-btn" onClick={() => setAddToPlaylistSong(song)} aria-label="Add to another playlist">
                   <PlusIcon size={16} />
                 </button>
+                <a
+                  className="icon-btn"
+                  href={api.songDownloadUrl(song.id)}
+                  download
+                  aria-label="Download MP3"
+                  title="Download MP3"
+                >
+                  <DownloadIcon size={16} />
+                </a>
                 <button type="button" className="icon-btn" onClick={() => handleRemove(song)} aria-label="Remove from playlist">
                   <CloseIcon size={16} />
                 </button>

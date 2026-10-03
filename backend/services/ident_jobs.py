@@ -24,16 +24,18 @@ from mutagen import File as MutagenFile
 
 from backend.services.file_match import identify
 
-# job id -> {state, log, result, error, file, path}
+# job id -> {state, log, result, error, file, path, user_id}; like an extract
+# token, a job is only readable by the person who uploaded the file.
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
 
 
-def _run(job_id: str, path) -> None:
+def _run(job_id: str, path, on_finish) -> None:
     def log(line):
         with _lock:
             _jobs[job_id]["log"].extend(str(line).splitlines())
 
+    result = None
     try:
         result = asyncio.run(identify(str(path), log=log))
         with _lock:
@@ -42,13 +44,21 @@ def _run(job_id: str, path) -> None:
         log(f"Error: {exc}")
         with _lock:
             _jobs[job_id].update(state="error", error=str(exc))
+    finally:
+        if on_finish is not None:
+            on_finish(result)
 
 
-def start(path, label: str) -> str:
-    """Kick off identification of one file. Returns the job id to poll."""
+def start(path, label: str, user_id: str, on_finish=None) -> str:
+    """Kick off identification of one file. Returns the job id to poll.
+
+    `on_finish(result)` runs on the job's thread once the pipeline stops, with
+    None if it failed — it's how the router settles the use it held.
+    """
     job_id = uuid.uuid4().hex
     with _lock:
         _jobs[job_id] = {
+            "user_id": user_id,
             "state": "running",
             "log": [],
             "result": None,
@@ -57,14 +67,15 @@ def start(path, label: str) -> str:
             "path": path,
         }
 
-    threading.Thread(target=_run, args=(job_id, path), daemon=True).start()
+    threading.Thread(target=_run, args=(job_id, path, on_finish), daemon=True).start()
     return job_id
 
 
-def get(job_id: str) -> dict | None:
+def get(job_id: str, user_id: str) -> dict | None:
     with _lock:
         job = _jobs.get(job_id)
-        return dict(job) if job else None
+        job = dict(job) if job else None
+    return job if job and job.get("user_id") == user_id else None
 
 
 def discard(job_id: str) -> None:
