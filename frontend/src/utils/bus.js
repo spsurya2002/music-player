@@ -6,6 +6,7 @@ const EVENT = "reel-audio:playlists-changed";
 const UNAUTHORIZED = "reel-audio:unauthorized";
 const SIGNED_OUT = "reel-audio:signed-out";
 const LIMITS_CHANGED = "reel-audio:limits-changed";
+const ABOUT_CHANGED = "reel-audio:about-changed";
 
 export function emitPlaylistsChanged() {
   window.dispatchEvent(new Event(EVENT));
@@ -48,4 +49,17 @@ export function emitLimitsChanged() {
 export function onLimitsChanged(callback) {
   window.addEventListener(LIMITS_CHANGED, callback);
   return () => window.removeEventListener(LIMITS_CHANGED, callback);
+}
+
+// The admin changed the About page. The rail, the phone sheet and the account
+// menu all read the same document to decide whether to show an entry and what
+// to call it, so they re-read rather than waiting for a reload — an editor
+// who has to refresh to see their own change assumes the save didn't work.
+export function emitAboutChanged() {
+  window.dispatchEvent(new Event(ABOUT_CHANGED));
+}
+
+export function onAboutChanged(callback) {
+  window.addEventListener(ABOUT_CHANGED, callback);
+  return () => window.removeEventListener(ABOUT_CHANGED, callback);
 }

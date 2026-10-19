@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Avatar from "../components/Avatar";
 import Msg from "../components/Msg";
 import { FEATURES, limitsChange } from "../components/Quota";
 import ConfirmModal from "../components/ConfirmModal";
-import { ChevronIcon, FeedbackIcon, PencilIcon, ShieldIcon, StarIcon, TrashIcon } from "../components/icons";
+import {
+  ChevronIcon,
+  FeedbackIcon,
+  MailIcon,
+  PencilIcon,
+  PlusIcon,
+  ShieldIcon,
+  StarIcon,
+  TrashIcon,
+} from "../components/icons";
 import { useAuth } from "../context/AuthContext";
-import { emitLimitsChanged } from "../utils/bus";
+import { emitAboutChanged, emitLimitsChanged } from "../utils/bus";
 import { fmtDate } from "../utils/format";
 import "../components/ModeTabs.css";
 import "./AdminView.css";
@@ -35,6 +45,7 @@ export default function AdminView() {
   const [tab, setTab] = useState("requests");
   const [pendingCount, setPendingCount] = useState(null);
   const [feedbackCount, setFeedbackCount] = useState(null);
+  const [messageCount, setMessageCount] = useState(null);
 
   if (!isAdmin) {
     return (
@@ -49,8 +60,8 @@ export default function AdminView() {
     <div className="view">
       <h1 className="page-title">Admin</h1>
       <p className="sub">
-        Answer requests for more, change anyone's limits, or read what people think of
-        the app. Limits are lifetime totals.
+        Answer requests for more, change anyone's limits, read what people think of the
+        app, and write the About page. Limits are lifetime totals.
       </p>
 
       <div className="mode-tabs" role="tablist">
@@ -83,11 +94,32 @@ export default function AdminView() {
           Feedback
           {feedbackCount > 0 && <span className="admin-count">{feedbackCount}</span>}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "about"}
+          className={"mode-tab" + (tab === "about" ? " active" : "")}
+          onClick={() => setTab("about")}
+        >
+          About page
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "messages"}
+          className={"mode-tab" + (tab === "messages" ? " active" : "")}
+          onClick={() => setTab("messages")}
+        >
+          Messages
+          {messageCount > 0 && <span className="admin-count">{messageCount}</span>}
+        </button>
       </div>
 
       {tab === "requests" && <RequestsTab onPendingCount={setPendingCount} />}
       {tab === "users" && <UsersTab />}
       {tab === "feedback" && <FeedbackTab onCount={setFeedbackCount} />}
+      {tab === "about" && <AboutTab />}
+      {tab === "messages" && <MessagesTab onCount={setMessageCount} />}
     </div>
   );
 }
@@ -262,6 +294,8 @@ function RequestsTab({ onPendingCount }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   const load = useCallback(async () => {
     try {
@@ -317,6 +351,21 @@ function RequestsTab({ onPendingCount }) {
     emitLimitsChanged();
   }
 
+  // Answering several at once removes several rows, so the list is rebuilt from
+  // the ids that went through rather than one filter per row.
+  function resolvedMany(ids) {
+    setOpenId(null);
+    setRows((current) => current.filter((r) => !ids.includes(r.id)));
+    onPendingCount((n) => Math.max(0, (n || ids.length) - ids.length));
+    setSelecting(false);
+    setSelectedIds(new Set());
+    emitLimitsChanged();
+  }
+
+  const pendingRows = rows || [];
+  const selectedRows = pendingRows.filter((r) => selectedIds.has(r.id));
+  const allSelected = pendingRows.length > 0 && selectedIds.size === pendingRows.length;
+
   return (
     <div className="card admin-list">
       <div className="admin-list-head">
@@ -334,8 +383,34 @@ function RequestsTab({ onPendingCount }) {
           <button type="button" className={"pill" + (filter === "all" ? " active" : "")} onClick={() => setFilter("all")}>
             History
           </button>
+          {/* Only on the waiting list: history is settled, and there is nothing
+              to answer in bulk or otherwise. */}
+          {filter === "pending" && pendingRows.length > 1 && (
+            <button
+              type="button"
+              className={"pill" + (selecting ? " active" : "")}
+              onClick={() => {
+                setSelecting((v) => !v);
+                setSelectedIds(new Set());
+                setOpenId(null);
+              }}
+            >
+              {selecting ? "Done" : "Select"}
+            </button>
+          )}
         </div>
       </div>
+
+      {selecting && (
+        <BulkPanel
+          requests={selectedRows}
+          allSelected={allSelected}
+          onToggleAll={() =>
+            setSelectedIds(allSelected ? new Set() : new Set(pendingRows.map((r) => r.id)))
+          }
+          onResolved={resolvedMany}
+        />
+      )}
 
       {error && <Msg kind="err">{error}</Msg>}
 
@@ -360,6 +435,16 @@ function RequestsTab({ onPendingCount }) {
             key={r.id}
             request={r}
             open={openId === r.id}
+            selecting={selecting}
+            selected={selectedIds.has(r.id)}
+            onToggleSelect={() =>
+              setSelectedIds((current) => {
+                const next = new Set(current);
+                if (next.has(r.id)) next.delete(r.id);
+                else next.add(r.id);
+                return next;
+              })
+            }
             onToggle={() => setOpenId((id) => (id === r.id ? null : r.id))}
             onResolved={resolved}
             onNoted={(next) => setRows((all) => all.map((x) => (x.id === next.id ? next : x)))}
@@ -369,7 +454,7 @@ function RequestsTab({ onPendingCount }) {
   );
 }
 
-function RequestRow({ request: r, open, onToggle, onResolved, onNoted }) {
+function RequestRow({ request: r, open, onToggle, onResolved, onNoted, selecting = false, selected = false, onToggleSelect }) {
   const pending = r.state === "pending";
   const current = r.user?.quota || {};
   const notes = r.notes || [];
@@ -378,9 +463,20 @@ function RequestRow({ request: r, open, onToggle, onResolved, onNoted }) {
   const asked = notes.length > 0 && notes[notes.length - 1].from === "user";
 
   return (
-    <div className={"admin-row" + (open ? " open" : "")}>
+    <div className={"admin-row" + (open ? " open" : "") + (selected ? " selected" : "")}>
       <div className="admin-row-main">
-        <Avatar user={r.user} size={34} />
+        {selecting && pending ? (
+          <span className="admin-row-check">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              aria-label={`Select the request from ${r.user?.name || "this account"}`}
+            />
+          </span>
+        ) : (
+          <Avatar user={r.user} size={34} />
+        )}
         <div className="admin-row-body">
           <div className="admin-row-top">
             <span className="admin-name">{r.user?.name || "Deleted account"}</span>
@@ -409,16 +505,145 @@ function RequestRow({ request: r, open, onToggle, onResolved, onNoted }) {
             </div>
           )}
         </div>
-        {pending && (
+        {pending && !selecting && (
           <button type="button" className={"btn small " + (open ? "ghost" : "secondary")} onClick={onToggle}>
             {open ? "Close" : "Respond"}
           </button>
         )}
       </div>
 
-      {pending && open && (
+      {pending && open && !selecting && (
         <RespondPanel request={r} onResolved={onResolved} onNoted={onNoted} />
       )}
+    </div>
+  );
+}
+
+/**
+ * One answer, applied to everything ticked.
+ *
+ * The grant is held as an intent ("+5 reels"), not as a total, and turned into
+ * a total against each request's own account when it is sent — ten people on
+ * different allowances all asking for a few more is the case this exists for,
+ * and a single number would set them all to the same figure instead.
+ *
+ * Sequential rather than Promise.all: `resolve` claims each request atomically
+ * before it moves any limits, and a queue answered in order is also one that
+ * can report which ones went through when the tenth fails.
+ */
+function BulkPanel({ requests, allSelected, onToggleAll, onResolved }) {
+  const [grants, setGrants] = useState(EVERY_SAME);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(0);
+
+  const granting = Object.keys(FEATURES).some((f) => grants[f]?.kind !== "same");
+
+  async function resolveAll(decision) {
+    if (decision === "decline" && !note.trim()) {
+      setError("Add a note so they know why.");
+      return;
+    }
+    setBusy(decision);
+    setError("");
+    setDone(0);
+    const went = [];
+    try {
+      for (const r of requests) {
+        const before = limitsOf(r.user?.quota || {});
+        const after = applyGrants(before, grants);
+        const changes = diff(before, after);
+        await api.adminResolveRequest(r.id, {
+          decision,
+          reply: note.trim(),
+          limits: decision === "approve" ? changes : undefined,
+        });
+        went.push(r.id);
+        setDone(went.length);
+      }
+      onResolved(went);
+    } catch (err) {
+      // Whatever already went through still did, so those rows go even though
+      // the run stopped — leaving them on screen would invite a second answer.
+      if (went.length) onResolved(went);
+      setError(
+        `${err.message || "That didn't go through."}${went.length ? ` ${went.length} of ${requests.length} were answered.` : ""}`
+      );
+    } finally {
+      setBusy("");
+      setDone(0);
+    }
+  }
+
+  return (
+    <div className="admin-panel admin-bulk">
+      <div className="admin-panel-label admin-bulk-head">
+        <button type="button" className="pill" onClick={onToggleAll}>
+          {allSelected ? "Clear" : "Select all"}
+        </button>
+        <span>
+          {requests.length} selected — one answer for all of them
+        </span>
+      </div>
+
+      {Object.keys(FEATURES).map((f) => (
+        <GrantControl
+          key={f}
+          feature={f}
+          /* No single current total across a selection, so the row shows the
+             choices without a "3/5 used" that would belong to nobody. */
+          q={null}
+          bulk
+          value={grants[f]}
+          onChange={(g) => setGrants((all) => ({ ...all, [f]: g }))}
+        />
+      ))}
+
+      <textarea
+        className="admin-note"
+        rows={2}
+        maxLength={1000}
+        placeholder="Note for all of them — optional to approve, needed to decline"
+        aria-label="Note for all of them — optional to approve, needed to decline"
+        value={note}
+        onChange={(e) => {
+          setNote(e.target.value);
+          if (error) setError("");
+        }}
+      />
+
+      <div className="admin-panel-foot">
+        <span className={"admin-preview" + (granting ? " on" : "")}>
+          {busy
+            ? `${done} of ${requests.length} answered…`
+            : granting
+              ? `Applied to each account's own total`
+              : "Pick what to grant, or decline them."}
+        </span>
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={() => resolveAll("decline")}
+            disabled={Boolean(busy) || !requests.length}
+          >
+            {busy === "decline" && <span className="spin" />}
+            Decline all
+          </button>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => resolveAll("approve")}
+            disabled={Boolean(busy) || !requests.length || !granting}
+          >
+            {busy === "approve" && <span className="spin" />}
+            Approve all
+          </button>
+        </div>
+      </div>
+
+      {error && <Msg kind="err">{error}</Msg>}
     </div>
   );
 }
@@ -556,6 +781,7 @@ function RespondPanel({ request: r, onResolved, onNoted }) {
         rows={2}
         maxLength={1000}
         placeholder="Note for them — optional to approve, needed to decline"
+        aria-label="Note for them — optional to approve, needed to decline"
         value={note}
         onChange={(e) => {
           setNote(e.target.value);
@@ -646,6 +872,7 @@ function UsersTab() {
           type="search"
           className="admin-search"
           placeholder="Search name or email"
+          aria-label="Search accounts by name or email"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoComplete="off"
@@ -733,27 +960,50 @@ function UserRow({ user: u, open, onToggle, onSaved }) {
 
 function EditPanel({ user: u, onSaved, onCancel }) {
   const q = u.quota || {};
+  const defaults = q.defaults || {};
   const [grants, setGrants] = useState(EVERY_SAME);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // Resets are not a number, so they are counted on their own and left out of
+  // the before/after totals — a feature going back to the default is not the
+  // same statement as one being set to whatever the default happens to be now.
+  const resets = Object.keys(FEATURES).filter((f) => grants[f]?.kind === "default");
   const before = limitsOf(q);
   const after = applyGrants(before, grants);
   const changes = diff(before, after);
   const invalid = Object.values(after).some((v) => v !== null && (!Number.isInteger(v) || v < 0));
+  const nothing = !Object.keys(changes).length && !resets.length;
 
   async function save() {
     setBusy(true);
     setError("");
     try {
-      const data = await api.adminSetLimits(u.id, changes);
-      onSaved(data.user);
+      let account = null;
+      // Resets first, then the numbers: both return the whole account, so the
+      // last response is the one that is current.
+      for (const f of resets) {
+        account = (await api.adminClearLimit(u.id, f)).user;
+      }
+      if (Object.keys(changes).length) {
+        account = (await api.adminSetLimits(u.id, changes)).user;
+      }
+      onSaved(account);
     } catch (err) {
       setError(err.message || "That didn't save.");
     } finally {
       setBusy(false);
     }
   }
+
+  const summary = [
+    Object.keys(changes).length ? limitsChange(before, after) : "",
+    resets.length
+      ? `${resets.map((f) => FEATURES[f].short.toLowerCase()).join(" and ")} back to the default`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="admin-panel">
@@ -763,18 +1013,20 @@ function EditPanel({ user: u, onSaved, onCancel }) {
           feature={f}
           q={q[f]}
           value={grants[f]}
+          allowDefault
+          fallback={defaults[f] ?? null}
           onChange={(g) => setGrants((all) => ({ ...all, [f]: g }))}
         />
       ))}
       <div className="admin-panel-foot">
-        <span className={"admin-preview" + (Object.keys(changes).length ? " on" : "")}>
-          {Object.keys(changes).length ? limitsChange(before, after) : "Nothing changed yet."}
+        <span className={"admin-preview" + (nothing ? "" : " on")}>
+          {nothing ? "Nothing changed yet." : summary}
         </span>
         <div className="admin-actions">
           <button type="button" className="btn ghost small" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button type="button" className="btn small" onClick={save} disabled={busy || invalid || !Object.keys(changes).length}>
+          <button type="button" className="btn small" onClick={save} disabled={busy || invalid || nothing}>
             {busy && <span className="spin" />}
             Save
           </button>
@@ -787,8 +1039,12 @@ function EditPanel({ user: u, onSaved, onCancel }) {
 
 // ---- Pieces -------------------------------------------------------------------
 
-// A grant is one of: leave it, add n, make it unlimited, or set a total by hand.
+// A grant is one of: leave it, add n, make it unlimited, set a total by hand,
+// or put it back on the free allowance. The last one is not a number, so it
+// travels on its own route (DELETE .../limits/{feature}) and stays out of the
+// before/after arithmetic below.
 const SAME = { kind: "same" };
+const DEFAULT = { kind: "default" };
 
 function applyGrant(limit, g) {
   if (g.kind === "add") return (limit ?? 0) + g.n;
@@ -821,10 +1077,16 @@ function diff(before, after) {
 }
 
 // One row per feature: what's used, then the choices as pills.
-function GrantControl({ feature, q, value, onChange }) {
+function GrantControl({ feature, q, value, onChange, allowDefault = false, fallback = null, bulk = false }) {
   const limit = q?.limit ?? null;
-  const unlimited = limit === null;
+  // A selection has no single current total, so there is no "already unlimited"
+  // to read off — and reading the missing one as unlimited would hide the +n
+  // pills, which are the whole point of answering several at once.
+  const unlimited = !bulk && limit === null;
   const is = (kind, n) => value.kind === kind && (n == null || value.n === n);
+  // Only worth offering where it would change something: an account already on
+  // the free allowance has nothing to put back.
+  const overridden = fallback != null && limit !== fallback;
 
   return (
     <div className="grant">
@@ -838,6 +1100,19 @@ function GrantControl({ feature, q, value, onChange }) {
         <button type="button" className={"pill" + (is("same") ? " active" : "")} onClick={() => onChange(SAME)}>
           No change
         </button>
+        {/* Back to whatever everyone else gets — which is not the same as a
+            number, and is why this one does not go through the PATCH. Setting
+            today's default by hand would pin the account to that figure after
+            FREE_*_LIMIT moved. */}
+        {allowDefault && overridden && (
+          <button
+            type="button"
+            className={"pill" + (is("default") ? " active" : "")}
+            onClick={() => onChange(DEFAULT)}
+          >
+            Default ({fallback})
+          </button>
+        )}
         {!unlimited &&
           PRESETS.map((n) => (
             <button
@@ -929,4 +1204,542 @@ function ago(iso) {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
   return fmtDate(iso);
+}
+
+// ---- The About page ----------------------------------------------------------
+
+/**
+ * The editor for /about.
+ *
+ * Everything that page shows is one document, so this is one form with one
+ * Save. There is no per-field patch: the admin is one person who is not racing
+ * themselves, and a form that saved as you typed would make "reset" mean
+ * nothing.
+ *
+ * `enabled` and `in_nav` are two switches rather than one because they are two
+ * different decisions. Taking the rail entry down is tidying; taking the page
+ * down breaks a URL that may already be sitting in a résumé, and the app should
+ * make you say which one you meant.
+ */
+
+const LINK_KINDS = ["email", "github", "linkedin", "resume", "site"];
+
+function AboutTab() {
+  const [draft, setDraft] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.adminGetAbout();
+      setDraft(data.about);
+      setSaved(JSON.stringify(data.about));
+      setError("");
+    } catch (err) {
+      setError(err.message || "Could not read the About page.");
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const dirty = draft != null && JSON.stringify(draft) !== saved;
+
+  function set(key, value) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  function setSection(index, key, value) {
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s, i) => (i === index ? { ...s, [key]: value } : s)),
+    }));
+  }
+
+  function moveSection(index, delta) {
+    const to = index + delta;
+    setDraft((d) => {
+      if (to < 0 || to >= d.sections.length) return d;
+      const sections = [...d.sections];
+      [sections[index], sections[to]] = [sections[to], sections[index]];
+      return { ...d, sections };
+    });
+  }
+
+  function addSection() {
+    setDraft((d) => ({
+      ...d,
+      // The id is what React keys on and what survives a reorder, so it has to
+      // be unique rather than the index it happens to start at.
+      sections: [...d.sections, { id: `s${Date.now()}`, heading: "", body: "" }],
+    }));
+  }
+
+  function removeSection(index) {
+    setDraft((d) => ({ ...d, sections: d.sections.filter((_, i) => i !== index) }));
+  }
+
+  function setLink(index, key, value) {
+    setDraft((d) => ({
+      ...d,
+      links: d.links.map((l, i) => (i === index ? { ...l, [key]: value } : l)),
+    }));
+  }
+
+  function addLink() {
+    setDraft((d) => ({ ...d, links: [...d.links, { kind: "site", label: "", value: "" }] }));
+  }
+
+  function removeLink(index) {
+    setDraft((d) => ({ ...d, links: d.links.filter((_, i) => i !== index) }));
+  }
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    setNote("");
+    try {
+      const data = await api.adminSaveAbout(draft);
+      setDraft(data.about);
+      setSaved(JSON.stringify(data.about));
+      setNote("Saved. The page is showing this now.");
+      // The rail, the phone sheet and the account menu all read the same
+      // document — tell them rather than making the editor reload to find out.
+      emitAboutChanged();
+    } catch (err) {
+      setError(err.message || "Could not save that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setResetting(false);
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api.adminResetAbout();
+      setDraft(data.about);
+      setSaved(JSON.stringify(data.about));
+      setNote("Back to the copy it shipped with.");
+      emitAboutChanged();
+    } catch (err) {
+      setError(err.message || "Could not reset that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!draft) {
+    return (
+      <div className="card admin-list">
+        {error ? (
+          <Msg kind="err">{error}</Msg>
+        ) : (
+          <div className="admin-empty">
+            <span className="spin" />
+            Reading the page…
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="card about-edit">
+        <div className="mhead">Switches</div>
+        <Switch
+          checked={draft.enabled}
+          onChange={(v) => set("enabled", v)}
+          label="The page is live"
+          sub="Off, /about answers Not found and the message box stops taking anything — including from a link somebody already has."
+        />
+        <Switch
+          checked={draft.in_nav}
+          onChange={(v) => set("in_nav", v)}
+          label="Show it in the rail"
+          sub="Off, the entry disappears from the rail, the phone sheet and the account menu. The page itself keeps working at its URL."
+          disabled={!draft.enabled}
+        />
+      </div>
+
+      <div className="card about-edit">
+        <div className="mhead">Wording</div>
+        <Field label="Page title" value={draft.title} onChange={(v) => set("title", v)} max={80} />
+        <Field
+          label="The line under it"
+          value={draft.subtitle}
+          onChange={(v) => set("subtitle", v)}
+          max={300}
+        />
+        <div className="about-edit-pair">
+          <Field
+            label="Rail label"
+            value={draft.nav_label}
+            onChange={(v) => set("nav_label", v)}
+            max={30}
+          />
+          <Field
+            label="Collapsed rail"
+            value={draft.nav_mini_label}
+            onChange={(v) => set("nav_mini_label", v)}
+            max={12}
+            hint="One short word — it sits under a 22px icon in 72px."
+          />
+        </div>
+      </div>
+
+      <div className="card about-edit">
+        <div className="about-edit-head">
+          <div className="mhead">Sections</div>
+          <button type="button" className="btn ghost small" onClick={addSection}>
+            <PlusIcon size={14} />
+            Add one
+          </button>
+        </div>
+        <p className="hint about-edit-note">
+          A blank line starts a new paragraph. That is all the formatting there is — no
+          Markdown, no HTML, so nothing you paste can break the page.
+        </p>
+
+        {draft.sections.length === 0 && (
+          <div className="admin-empty">
+            <div>No sections. The page would be a title and nothing else.</div>
+          </div>
+        )}
+
+        {draft.sections.map((section, i) => (
+          <div className="about-edit-section" key={section.id || i}>
+            <div className="about-edit-section-head">
+              <input
+                type="text"
+                value={section.heading}
+                onChange={(e) => setSection(i, "heading", e.target.value)}
+                placeholder="Heading"
+                aria-label={`Heading for section ${i + 1}`}
+                maxLength={120}
+              />
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => moveSection(i, -1)}
+                disabled={i === 0}
+                aria-label="Move up"
+                title="Move up"
+              >
+                <span className="about-edit-arrow up">
+                  <ChevronIcon size={15} />
+                </span>
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => moveSection(i, 1)}
+                disabled={i === draft.sections.length - 1}
+                aria-label="Move down"
+                title="Move down"
+              >
+                <span className="about-edit-arrow down">
+                  <ChevronIcon size={15} />
+                </span>
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => removeSection(i)}
+                aria-label="Remove this section"
+                title="Remove this section"
+              >
+                <TrashIcon size={15} />
+              </button>
+            </div>
+            <textarea
+              value={section.body}
+              onChange={(e) => setSection(i, "body", e.target.value)}
+              rows={7}
+              maxLength={4000}
+              placeholder="What this section says."
+              aria-label={`Body of section ${i + 1}`}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="card about-edit">
+        <div className="about-edit-head">
+          <div className="mhead">Links</div>
+          <button type="button" className="btn ghost small" onClick={addLink}>
+            <PlusIcon size={14} />
+            Add one
+          </button>
+        </div>
+        <p className="hint about-edit-note">
+          A link with nothing in it simply isn&apos;t shown — which is how the résumé
+          button stays off the page until there&apos;s a URL to put behind it.
+        </p>
+
+        {draft.links.map((link, i) => (
+          <div className="about-edit-link" key={i}>
+            <select
+              value={link.kind}
+              onChange={(e) => setLink(i, "kind", e.target.value)}
+              aria-label={`What link ${i + 1} is`}
+            >
+              {LINK_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              className="about-edit-link-label"
+              value={link.label}
+              onChange={(e) => setLink(i, "label", e.target.value)}
+              placeholder="Label"
+              aria-label={`Label for link ${i + 1}`}
+              maxLength={40}
+            />
+            <input
+              type="text"
+              value={link.value}
+              onChange={(e) => setLink(i, "value", e.target.value)}
+              placeholder={link.kind === "email" ? "you@example.com" : "https://…"}
+              aria-label={`Address for link ${i + 1}`}
+              maxLength={500}
+            />
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => removeLink(i)}
+              aria-label="Remove this link"
+              title="Remove this link"
+            >
+              <TrashIcon size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="card about-edit">
+        <div className="mhead">The message box</div>
+        <Switch
+          checked={draft.contact_enabled}
+          onChange={(v) => set("contact_enabled", v)}
+          label="People can write in from the page"
+          sub="Off, the form goes and the route behind it stops accepting anything."
+        />
+        <Field
+          label="Heading"
+          value={draft.contact_heading}
+          onChange={(v) => set("contact_heading", v)}
+          max={80}
+        />
+        <Field
+          label="The line under the box"
+          value={draft.contact_hint}
+          onChange={(v) => set("contact_hint", v)}
+          max={300}
+        />
+        <Field
+          label="What it says once sent"
+          value={draft.contact_sent}
+          onChange={(v) => set("contact_sent", v)}
+          max={300}
+        />
+      </div>
+
+      {error && <Msg kind="err">{error}</Msg>}
+      {/* Only while clean: the moment anything changes, "Saved" stops being
+          true, and that includes a reorder no setter above runs through. */}
+      {note && !dirty && !error && <Msg kind="ok">{note}</Msg>}
+
+      <div className="about-edit-actions">
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => setResetting(true)}
+          disabled={busy}
+        >
+          Reset to default
+        </button>
+        <Link to="/about" className="btn ghost" target="_blank" rel="noopener">
+          Preview
+        </Link>
+        <button type="button" className="btn" onClick={save} disabled={busy || !dirty}>
+          {busy ? <span className="spin" /> : null}
+          {dirty ? "Save" : "Saved"}
+        </button>
+      </div>
+
+      {resetting && (
+        <ConfirmModal
+          title="Reset the About page"
+          message="Every word on it goes back to the copy the app shipped with. Whatever is there now is lost."
+          confirmLabel="Reset"
+          onConfirm={reset}
+          onClose={() => setResetting(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function Field({ label, value, onChange, max, hint }) {
+  return (
+    <label className="about-edit-field">
+      <span className="about-edit-label">{label}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        maxLength={max}
+      />
+      {hint && <span className="about-edit-hint">{hint}</span>}
+    </label>
+  );
+}
+
+// A real switch rather than a checkbox: these two turn a public page on and
+// off, and the state has to be readable at a glance from across the form.
+function Switch({ checked, onChange, label, sub, disabled }) {
+  return (
+    <div className={"about-switch" + (disabled ? " disabled" : "")}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        className={"about-switch-track" + (checked ? " on" : "")}
+        onClick={() => onChange(!checked)}
+        disabled={disabled}
+      >
+        <span className="about-switch-knob" />
+      </button>
+      <div className="about-switch-text">
+        <div className="about-switch-label">{label}</div>
+        <div className="about-switch-sub">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Messages from the About page --------------------------------------------
+
+// Like feedback, but from people who mostly have no account here — so the name
+// and the address are what they typed, and the only thing to do with one is
+// answer it in a mail client.
+
+function MessagesTab({ onCount }) {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.adminListContact();
+      setRows(data.messages || []);
+      setError("");
+      onCount((data.messages || []).length);
+    } catch (err) {
+      setError(err.message || "Could not read the messages.");
+    }
+  }, [onCount]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function remove() {
+    const row = deleting;
+    setDeleting(null);
+    try {
+      await api.adminDeleteContact(row.id);
+      setRows((current) => current.filter((r) => r.id !== row.id));
+      onCount((rows || []).length - 1);
+    } catch (err) {
+      setError(err.message || "Could not delete that.");
+    }
+  }
+
+  return (
+    <>
+      <div className="card admin-list">
+        <div className="admin-list-head">
+          <span className="admin-list-title">
+            {rows ? `${rows.length} ${rows.length === 1 ? "message" : "messages"}` : "Messages"}
+          </span>
+        </div>
+
+        {error && <Msg kind="err">{error}</Msg>}
+
+        {rows === null && !error && (
+          <div className="admin-empty">
+            <span className="spin" />
+            Reading messages…
+          </div>
+        )}
+
+        {rows && rows.length === 0 && (
+          <div className="admin-empty">
+            <MailIcon size={26} />
+            <div>Nobody has written in yet.</div>
+            <div className="admin-empty-sub">
+              The box is at the foot of the About page, and anyone can use it — no account
+              needed.
+            </div>
+          </div>
+        )}
+
+        {rows &&
+          rows.map((m) => (
+            <div key={m.id} className="admin-row">
+              <div className="admin-row-main">
+                <div className="admin-row-body">
+                  <div className="admin-row-top">
+                    <span className="admin-name">{m.name}</span>
+                    {m.signed_in && <span className="badge low">has an account</span>}
+                    <span className="admin-time">{ago(m.created_at)}</span>
+                  </div>
+                  <div className="admin-email">{m.email}</div>
+                  <div className="admin-row-message full">{m.message}</div>
+                </div>
+                <a
+                  className="icon-btn"
+                  href={`mailto:${m.email}?subject=${encodeURIComponent("Re: your note from Reelody")}`}
+                  aria-label={`Reply to ${m.name}`}
+                  title="Reply"
+                >
+                  <MailIcon size={16} />
+                </a>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setDeleting(m)}
+                  aria-label="Delete this message"
+                  title="Delete this message"
+                >
+                  <TrashIcon size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {deleting && (
+        <ConfirmModal
+          title="Delete message"
+          message={`Delete what ${deleting.name} wrote? They won't be told, and there's no copy.`}
+          confirmLabel="Delete"
+          onConfirm={remove}
+          onClose={() => setDeleting(null)}
+        />
+      )}
+    </>
+  );
 }

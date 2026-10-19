@@ -37,6 +37,18 @@
   color: var(--accent);
 }
 
+/* The Add switch, and only it — AdminView's Requests / Users tabs share this
+   file and must stay at every width. Above 760px the rail is on screen with
+   "Add a reel" and "Add a file" as two of its rows, so this was a second set of
+   the same two links a few inches away. Below it the rail is display:none and
+   the phone's one Add tab points at the reel, so this is the only way to the
+   file page. 760px is the rail's own breakpoint — see docs/DESIGN.md. */
+@media (min-width: 761px) {
+  .add-tabs {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   /* Two tabs have to fit a 360px screen with the view's own gutter, so they
      share the width evenly rather than sizing to their labels. */

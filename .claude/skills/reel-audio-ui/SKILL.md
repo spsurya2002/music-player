@@ -212,6 +212,15 @@ is the only place that explanation can still reach you.
 - **The player reads `audio_url` off the song**, it no longer builds it from the id. A
   shared song's URL points at `/api/shared/...`, and the library's own route would 404 on
   it. Anything that constructs an audio URL by hand will play the wrong thing, or nothing.
+- **A lyrics row's words are not all ours.** `mine[]` on the row holds the versions
+  somebody typed in themselves — the answer to a crawl that found nothing, and free,
+  because charging for it would put a price on our own failure. It sits in the same
+  `.pill` switcher as the crawler's per-script candidates. `_BLANK` in
+  `services/lyrics_jobs.py` is wiped every time a row is requeued: putting `mine`,
+  `manual_title` or `manual_artist` in it would delete a person's own lyrics every
+  time they pressed Look again. A row still holds exactly **one** reading, and
+  `meaning_version` says which version it is about — shown beside any other it would
+  pair every line with somebody else's words.
 - **Song identification is best-effort.** A reel where someone sings the song themselves
   will never fingerprint, and often carries no music sticker either. The MP3 is the
   product; identification is a bonus. Degrade, never gate.

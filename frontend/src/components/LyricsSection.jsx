@@ -10,8 +10,16 @@ import {
   MeaningHead,
   SourceLine,
   Terms,
+  canExplainVersion,
+  labelFor,
+  meaningFor,
+  meaningOwner,
+  versionKey,
   versionsOf,
 } from "./LyricsBits";
+import AddLyricsModal from "./AddLyricsModal";
+import ConfirmModal from "./ConfirmModal";
+import NoWordsPanel from "./NoWordsPanel";
 import Msg from "./Msg";
 import { ErrorMsg, QuotaNote } from "./Quota";
 import { RefreshIcon } from "./icons";
@@ -36,6 +44,10 @@ export default function LyricsSection({ song }) {
   // The ApiError itself, not its message, so a used-up limit can offer the way
   // to ask for more.
   const [error, setError] = useState(null);
+  // null when closed; {} to add, or the version being edited.
+  const [editing, setEditing] = useState(null);
+  const [dropVersion, setDropVersion] = useState(null);
+  const [reExplain, setReExplain] = useState(null);
 
   const songId = song.id;
   const busyWords = Boolean(row && ACTIVE.includes(row.state));
@@ -106,25 +118,58 @@ export default function LyricsSection({ song }) {
     [songId]
   );
 
-  const explain = useCallback(async () => {
-    setError(null);
-    try {
-      const d = await api.explainLyrics(row.id);
+  const explain = useCallback(
+    async (version) => {
+      setError(null);
+      try {
+        const d = await api.explainLyrics(row.id, version ?? null);
+        setRow(d.lyrics);
+      } catch (err) {
+        setError(err);
+      } finally {
+        emitLimitsChanged();
+      }
+    },
+    [row]
+  );
+
+  // Words of your own. On this page the row may not exist yet — a song nobody
+  // has looked up has nowhere to put them — so the first add goes through the
+  // song, which makes the row on the way.
+  const saveMine = useCallback(
+    async ({ text, label }) => {
+      let d;
+      if (editing?.id) d = await api.editMyLyrics(row.id, editing.id, { text, label });
+      else if (row) d = await api.addMyLyrics(row.id, text, label);
+      else d = await api.addMyLyricsForSong(songId, text, label);
       setRow(d.lyrics);
-    } catch (err) {
-      setError(err);
-    } finally {
-      emitLimitsChanged();
-    }
-  }, [row]);
+      setEditing(null);
+      const list = d.lyrics.mine || [];
+      const added = list.find((v) => v.id === editing?.id) || list[list.length - 1];
+      setVersion(added ? { ...added, mine: true } : null);
+    },
+    [row, songId, editing]
+  );
+
+  const removeMine = useCallback(async () => {
+    const target = dropVersion;
+    setDropVersion(null);
+    const d = await api.deleteMyLyrics(row.id, target.id);
+    setRow(d.lyrics);
+    setVersion(null);
+  }, [row, dropVersion]);
 
   const busy = starting || active;
   const state = row?.state;
   const versions = versionsOf(row);
   const shown = version || versions[0];
-  // Once there is a reading, the book shows the version it was made from —
-  // switching script under it would pair each line with somebody else's words.
-  const canSwitch = !row?.meaning;
+  // A row holds one reading, and it belongs to the version it was made from.
+  const meaningShown = meaningFor(row, shown, versions);
+  const explainedElsewhere = Boolean(row?.meaning) && !meaningShown;
+  const explainedOne = explainedElsewhere ? meaningOwner(row, versions) : null;
+  // The server reads your own words, or the best the crawler found. It has no
+  // way to be asked for an alternative script, so that is not offered.
+  const explainable = canExplainVersion(shown, versions);
 
   return (
     <div className="detail-section">
@@ -159,6 +204,16 @@ export default function LyricsSection({ song }) {
             <button type="button" className="btn" onClick={() => findWords(false)} disabled={busy}>
               {starting ? <span className="spin" /> : "Find lyrics"}
             </button>
+            {/* For a song whose words you already have. There is no row yet,
+                so this one goes through the song and makes it on the way. */}
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setEditing({})}
+              disabled={busy}
+            >
+              Add them yourself
+            </button>
           </div>
         </>
       )}
@@ -172,7 +227,16 @@ export default function LyricsSection({ song }) {
         </div>
       )}
 
-      {(state === "not_found" || state === "failed") && (
+      {/* A stop leaves the section with nothing to show otherwise. */}
+      {state === "stopped" && !shown && (
+        <NoWordsPanel row={row} onAdd={() => setEditing({})} />
+      )}
+
+      {/* Only while there is nothing to read. A row that found nothing and then
+          had words typed into it is not a row in a failed state any more, and
+          the notice, the Try again and the offer of somewhere to put them all
+          stop applying the moment there is something on the page. */}
+      {(state === "not_found" || state === "failed") && !shown && (
         <>
           <Msg kind="err">{row.error}</Msg>
           {state === "not_found" && (
@@ -186,14 +250,23 @@ export default function LyricsSection({ song }) {
               {starting ? <span className="spin" /> : "Try again"}
             </button>
           </div>
-          <CrawlLog crawled={row.crawled} query={row.query} />
+          {/* Keeping is not a question here: the row belongs to the song, and
+              goes when the song does. */}
+          <NoWordsPanel row={row} onAdd={() => setEditing({})} />
         </>
       )}
 
-      {state === "done" && shown && (
+      {shown && (
         <>
-          <SourceLine shown={shown} versions={versions} onVersion={setVersion} canSwitch={canSwitch} />
-          <MeaningHead meaning={row.meaning} />
+          <SourceLine
+            shown={shown}
+            versions={versions}
+            onVersion={setVersion}
+            onAdd={() => setEditing({})}
+            onEdit={shown.mine ? setEditing : null}
+            onDelete={shown.mine ? setDropVersion : null}
+          />
+          <MeaningHead meaning={meaningShown} />
 
           {busyMeaning && (
             <div className="song lyrics-working">
@@ -206,17 +279,53 @@ export default function LyricsSection({ song }) {
             <div className="song lyrics-nomeaning">{row.meaning_note}</div>
           )}
 
+          {!busyMeaning && (explainedElsewhere || !explainable) && (
+            <div className="lyrics-other-reading">
+              <span className="hint">
+                {explainedElsewhere ? (
+                  <>
+                    The reading on this one was made from{" "}
+                    <b>{explainedOne ? labelFor(explainedOne) : "another version"}</b>. A
+                    song holds one, so{" "}
+                    {explainable
+                      ? "reading these words replaces it."
+                      : "switch back to read it, or add words of your own."}
+                  </>
+                ) : (
+                  "Readings are made from the main version, or from words you add yourself."
+                )}
+              </span>
+              {explainedElsewhere && explainable && (
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => setReExplain(shown)}
+                >
+                  Explain this one instead
+                </button>
+              )}
+            </div>
+          )}
+
           <LyricsBook
+            version={shown}
             text={shown.text}
-            meaning={row.meaning}
-            onExplain={explain}
+            meaning={meaningShown}
+            onExplain={() => explain(versionKey(shown))}
             explaining={busyMeaning}
-            canExplain={!busyMeaning && row.meaning_state !== "limited"}
+            canExplain={
+              !busyMeaning &&
+              row.meaning_state !== "limited" &&
+              !explainedElsewhere &&
+              explainable
+            }
           />
 
-          {!row.meaning && !busyMeaning && <QuotaNote feature="lyrics" />}
-          <Terms terms={row.meaning?.terms} />
-          <MeaningCaveat meaning={row.meaning} />
+          {!meaningShown && !busyMeaning && !explainedElsewhere && (
+            <QuotaNote feature="meaning" />
+          )}
+          <Terms terms={meaningShown?.terms} />
+          <MeaningCaveat meaning={meaningShown} />
           <CrawlLog crawled={row.crawled} query={row.query} />
 
           <div className="hint lyrics-open-full">
@@ -225,6 +334,49 @@ export default function LyricsSection({ song }) {
             </Link>
           </div>
         </>
+      )}
+
+      {editing && (
+        <AddLyricsModal
+          version={editing.id ? editing : null}
+          warnLosesMeaning={
+            Boolean(editing.id) &&
+            row?.meaning_version === `mine:${editing.id}` &&
+            Boolean(row?.meaning)
+          }
+          onSave={saveMine}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {dropVersion && (
+        <ConfirmModal
+          title="Delete these words"
+          message={`Delete the "${labelFor(dropVersion)}" version? ${
+            row?.meaning_version === `mine:${dropVersion.id}` && row?.meaning
+              ? "Its reading goes with it."
+              : "The rest of this lookup stays."
+          }`}
+          confirmLabel="Delete"
+          onConfirm={removeMine}
+          onClose={() => setDropVersion(null)}
+        />
+      )}
+
+      {reExplain && (
+        <ConfirmModal
+          title="Read this version instead"
+          message={`A song holds one reading. Reading the "${labelFor(
+            reExplain
+          )}" version replaces the one you have, and costs another lyric lookup.`}
+          confirmLabel="Read it"
+          danger={false}
+          onConfirm={async () => {
+            setReExplain(null);
+            await explain(versionKey(reExplain));
+          }}
+          onClose={() => setReExplain(null)}
+        />
       )}
     </div>
   );

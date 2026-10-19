@@ -2,7 +2,7 @@ import { config } from '../config.js';
 import { fetchText, isAllowedByRobots } from '../utils/http.js';
 import { extractLyrics, lyricsLikeness } from './extractor.js';
 import { siteOf, siteWeight } from './search.js';
-import { detectScripts, tokenCoverage } from '../utils/text.js';
+import { detectScripts, fuzzyCoverage, tokenCoverage } from '../utils/text.js';
 import type { LyricsCandidate, SongQuery } from '../types.js';
 
 export interface CrawlAttempt {
@@ -30,7 +30,11 @@ function scoreCandidate(
 
   // The URL slug and page title both tell us which song the page is about.
   const haystack = `${pageTitle} ${decodeURIComponent(url).replace(/[/_-]+/g, ' ')}`;
-  const titleMatch = tokenCoverage(query.title, haystack);
+  // A page titled "Saher Karib Hai" *is* "Sahar Qareeb Hai" — the same words,
+  // written down by a different ear. Exact tokens decide it whenever they can,
+  // and only when they cannot does the looser reading get to speak, so an
+  // English title that already matches outright is scored exactly as before.
+  const titleMatch = Math.max(tokenCoverage(query.title, haystack), fuzzyCoverage(query.title, haystack));
   const artistMatch = query.artist
     ? Math.max(tokenCoverage(query.artist, haystack), detectedArtist ? tokenCoverage(query.artist, detectedArtist) : 0)
     : 0;

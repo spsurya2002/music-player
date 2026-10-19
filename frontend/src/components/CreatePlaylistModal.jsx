@@ -30,6 +30,7 @@ export default function CreatePlaylistModal({ onClose, onCreated }) {
           <input
             type="text"
             placeholder="Playlist name"
+            aria-label="Playlist name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -40,6 +41,7 @@ export default function CreatePlaylistModal({ onClose, onCreated }) {
           <input
             type="text"
             placeholder="Description (optional)"
+            aria-label="Playlist description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />

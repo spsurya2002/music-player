@@ -1,0 +1,32 @@
+/* The box you paste into. Taller than anything else in the app, because the
+   thing going into it is a whole song and seeing its shape is how you tell
+   whether the paste came through with its line breaks intact. */
+.lyrics-paste {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.lyrics-paste-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 0 12px;
+}
+
+.lyrics-paste-foot .hint {
+  margin: 0;
+}
+
+.lyrics-paste-count {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lyrics-paste-count.over {
+  color: var(--err);
+}

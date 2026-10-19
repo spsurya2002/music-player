@@ -68,11 +68,32 @@
   min-width: 0;
 }
 
+/* A lookup that started from a pasted link has no name yet, so until the
+   worker resolves one this is a raw URL — one unbroken 90-character word. With
+   nothing told to break it, it ran straight out of its flex item and printed
+   over the Listen button sitting next to it. Breaking anywhere stops the
+   overrun; clamping at two lines stops a URL turning the header into three
+   lines of 26px type. */
 .lyrics-head-title {
   margin: 0;
   font-size: 26px;
   font-weight: 600;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* The link to where this came from sits on the same line as its icon, rather
+   than the icon hanging off the baseline underneath it. */
+.lyrics-head-sub .ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
 }
 
 .lyrics-head-sub {
@@ -80,6 +101,24 @@
   color: var(--muted);
   font-size: 12.5px;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* A notice with a job on arrival and none after it: why the crawl came back
+   with nothing. It fades out rather than vanishing, so the page settling is
+   something you watch happen rather than a blink you have to account for. The
+   panel under it says the same thing for as long as it is true. */
+.lyrics-said {
+  transition: opacity 400ms ease;
+}
+
+.lyrics-said.is-out {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ---- rows, shared by the recent list and the library ---- */
@@ -105,9 +144,15 @@
   flex-shrink: 0;
 }
 
+/* The link is the middle of the row rather than the row itself, so the buttons
+   at the end can be its siblings rather than anchors nested in an anchor. It
+   carries the row's own type colour: left to the browser it arrives underlined,
+   which is not how any other row in the app reads. */
 .lyrics-row-main {
   min-width: 0;
   flex: 1;
+  color: var(--text);
+  text-decoration: none;
 }
 
 .lyrics-row-main b {
@@ -274,4 +319,10 @@
     flex-direction: column;
     gap: 10px;
   }
+}
+
+/* Geometry only — see span.thumb-empty. */
+.lyrics-set-cover .thumb-empty {
+  width: 100%;
+  height: 100%;
 }

@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Msg from "../components/Msg";
+import RenameLyricsModal from "../components/RenameLyricsModal";
 import { titleOf } from "../components/LyricsBits";
+import { PencilIcon } from "../components/icons";
 import "./views.css";
 import "./LyricsView.css";
+import Thumb from "../components/Thumb";
 
 const FILTERS = [
   { value: "", label: "Everything" },
@@ -24,6 +27,10 @@ export default function LyricsAllView() {
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState("");
   const [error, setError] = useState("");
+  // The row being renamed, or null. This is the list where a lookup still
+  // filed under the link somebody pasted is obvious, so it is where the name
+  // gets fixed.
+  const [renaming, setRenaming] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,40 +100,82 @@ export default function LyricsAllView() {
       {rows && rows.length > 0 && (
         <div className="link-list">
           {rows.map((r) => (
-            <LyricsRow key={r.id} row={r} />
+            <LyricsRow key={r.id} row={r} onRename={setRenaming} />
           ))}
         </div>
+      )}
+
+      {renaming && (
+        <RenameLyricsModal
+          row={renaming}
+          onSaved={(updated) =>
+            setRows((list) => (list || []).map((r) => (r.id === updated.id ? updated : r)))
+          }
+          onClose={() => setRenaming(null)}
+        />
       )}
     </div>
   );
 }
 
-// One saved lookup, as a row.
-export function LyricsRow({ row }) {
+/** One saved lookup, as a row.
+ *
+ *  The link is the inner element rather than the row itself, so the rename
+ *  button beside it is a sibling: a button inside an anchor is not something
+ *  the anchor is allowed to contain, and every press would have had to talk
+ *  the navigation out of happening.
+ */
+export function LyricsRow({ row, onRename }) {
   return (
-    <Link to={`/lyrics/${row.id}`} className="song lyrics-row">
-      {row.video?.thumbnail ? (
-        <img className="lyrics-row-thumb" src={row.video.thumbnail} alt="" />
-      ) : (
-        <span className="lyrics-row-thumb placeholder" aria-hidden="true" />
-      )}
-      <span className="lyrics-row-main">
+    <div className="song lyrics-row">
+      <Thumb className="lyrics-row-thumb" src={row.video?.thumbnail} iconSize={15} />
+      <Link to={`/lyrics/${row.id}`} className="lyrics-row-main">
         <b>{titleOf(row)}</b>
         <span className="via">{subOf(row)}</span>
-      </span>
-    </Link>
+      </Link>
+      {onRename && (
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => onRename(row)}
+          aria-label={`Rename ${titleOf(row)}`}
+          title="Rename this lookup"
+        >
+          <PencilIcon size={16} />
+        </button>
+      )}
+    </div>
   );
 }
 
 function subOf(row) {
+  const mine = (row.mine || []).length;
+  const yours = mine === 1 ? "1 of yours" : `${mine} of yours`;
+
   if (row.state === "done") {
     return [
-      row.resolved?.artist,
+      row.manual_artist || row.resolved?.artist,
       row.meaning ? "read" : "words only",
+      mine ? yours : null,
       row.origin === "song" ? "from a song in your library" : null,
     ]
       .filter(Boolean)
       .join(" · ");
   }
+
+  // A lookup that found nothing is not a dud once you have put the words in
+  // yourself, and the list is where you would go looking for them — so say so
+  // rather than leaving the row reading as a failure.
+  if (mine) {
+    return [
+      row.manual_artist || null,
+      row.state === "manual" ? "added by you" : "no words found",
+      yours,
+      row.meaning ? "read" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
   return row.error || row.state;
 }

@@ -17,10 +17,12 @@ import {
   DownloadIcon,
   GlobeIcon,
   LockIcon,
+  MusicIcon,
 } from "../components/icons";
 import { emitPlaylistsChanged } from "../utils/bus";
 import { fmtDur, songTitle } from "../utils/format";
 import "./views.css";
+import Thumb from "../components/Thumb";
 
 const LOOPS = ["off", "all", "one"];
 const LOOP_LABEL = { off: "No loop", all: "Loop all", one: "Loop one" };
@@ -193,11 +195,15 @@ export default function PlaylistDetailView() {
   return (
     <div className="view">
       <div className="playlist-detail-head">
-        {playlist.cover ? (
-          <img className="playlist-detail-cover" src={playlist.cover} alt="" />
-        ) : (
-          <div className="playlist-detail-cover-empty" />
-        )}
+        <Thumb
+          className="playlist-detail-cover"
+          src={playlist.cover}
+          fallback={
+            <div className="playlist-detail-cover-empty">
+              <MusicIcon size={34} />
+            </div>
+          }
+        />
         <div className="detail-meta">
           {!renaming ? (
             <div className="detail-title-row">
@@ -310,7 +316,7 @@ export default function PlaylistDetailView() {
                     <span className="ico">{active && playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}</span>
                   </button>
                   <button type="button" className="song-row-main" onClick={() => navigate(`/songs/${song.id}`)}>
-                    <img className="song-row-thumb" src={song.thumbnail || undefined} alt="" />
+                    <Thumb className="song-row-thumb" src={song.thumbnail} />
                     <span className="song-row-text">
                       <span className="song-row-title">{songTitle(song)}</span>
                       <span className="song-row-artist">{song.artist || song.uploader || "Unknown"}</span>

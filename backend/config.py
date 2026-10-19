@@ -94,15 +94,21 @@ ADMIN_EMAILS = {
     if e.strip()
 }
 
-# What a new account gets of the three paid features before it has to ask for
-# more: pulling the audio out of a reel, finding the song behind a file, and
-# looking up a song's lyrics and what they mean. Lifetime totals, not monthly —
-# only an admin raises them. Stored per user only once an admin has changed
-# them, so editing these moves everyone still on the default (see
+# What a new account gets of the four paid features before it has to ask for
+# more: pulling the audio out of a reel, finding the song behind a file, looking
+# up a song's words, and having those words explained. Lifetime totals, not
+# monthly — only an admin raises them. Stored per user only once an admin has
+# changed them, so editing these moves everyone still on the default (see
 # backend/services/quota.py).
 FREE_REEL_LIMIT = int(os.environ.get("FREE_REEL_LIMIT", "5"))
 FREE_FILE_LIMIT = int(os.environ.get("FREE_FILE_LIMIT", "5"))
 FREE_LYRICS_LIMIT = int(os.environ.get("FREE_LYRICS_LIMIT", "5"))
+
+# The reading is its own allowance, and the smallest one, because it is the only
+# feature here that spends somebody else's money per use: a crawl is our own
+# bandwidth, a Gemini call is a bill. Two is enough to see what the feature is
+# for and not enough to run up a tab by holding the button down.
+FREE_MEANING_LIMIT = int(os.environ.get("FREE_MEANING_LIMIT", "2"))
 
 
 # --- Lyrics and meaning ----------------------------------------------------
@@ -117,3 +123,11 @@ LYRICS_SIDECAR_URL = os.environ.get("LYRICS_SIDECAR_URL", "http://127.0.0.1:4001
 # own time. Generous because this runs in a background worker, where nothing is
 # waiting on the socket — not in a request, which Cloudflare would cut at 100s.
 LYRICS_TIMEOUT = int(os.environ.get("LYRICS_TIMEOUT", "240"))
+
+# Words someone typed in themselves, when the crawler found none or found the
+# wrong ones. Free — there is no crawl and no model call behind them — so the
+# only limits are the ones that keep a row sane: the sidecar refuses to explain
+# more than 12,000 characters in one go (lyrics-node/src/routes/meaning.ts), so
+# accepting more would only store something that can never be read.
+MAX_MY_LYRICS_CHARS = int(os.environ.get("MAX_MY_LYRICS_CHARS", "12000"))
+MAX_MY_VERSIONS = int(os.environ.get("MAX_MY_VERSIONS", "10"))

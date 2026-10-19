@@ -210,16 +210,21 @@
   position: relative;
 }
 
+/* Filled and flex-centred rather than placed at a percentage. `top: 54%` put
+   the digit's box at ~17px down a 32px button while the arc's lowest point is
+   ~23px, so the bottom half of the numeral fell outside the circle and sat on
+   the stroke — which is what made it unreadable. Centring on the button centres
+   it in the arc too, since the glyph is itself centred, and it stays centred if
+   the icon or the button is ever resized. */
 .player-nudge span {
   position: absolute;
-  font-size: 8.5px;
-  font-weight: 600;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
   line-height: 1;
-  /* Centred in the arc, nudged down past the arrowhead. */
-  top: 54%;
-  left: 0;
-  right: 0;
-  text-align: center;
   pointer-events: none;
 }
 

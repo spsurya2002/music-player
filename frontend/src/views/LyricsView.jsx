@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as api from "../api/client";
-import { ErrorMsg } from "../components/Quota";
+import { ErrorMsg, QuotaNote } from "../components/Quota";
 import { SearchIcon } from "../components/icons";
 import "./views.css";
 import "./LyricsView.css";
@@ -76,6 +76,8 @@ export default function LyricsView() {
           <span className="lyrics-search-label">Find</span>
         </button>
       </form>
+
+      <QuotaNote feature="lyrics" />
 
       <div className="lyrics-examples">
         {EXAMPLES.map((e) => (

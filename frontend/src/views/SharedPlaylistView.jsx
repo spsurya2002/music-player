@@ -6,10 +6,11 @@ import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import Msg from "../components/Msg";
 import QueueButton from "../components/QueueButton";
-import { PlayIcon, PauseIcon, DownloadIcon, CopyIcon, GlobeIcon } from "../components/icons";
+import { PlayIcon, PauseIcon, DownloadIcon, CopyIcon, GlobeIcon, MusicIcon } from "../components/icons";
 import { emitPlaylistsChanged } from "../utils/bus";
 import { fmtDur, songTitle } from "../utils/format";
 import "./views.css";
+import Thumb from "../components/Thumb";
 
 // Somebody else's playlist, read-only. You can play it and you can copy it;
 // there is deliberately no rename, reorder, remove or delete here — editing
@@ -113,11 +114,15 @@ export default function SharedPlaylistView() {
   return (
     <div className="view">
       <div className="playlist-detail-head">
-        {playlist.cover ? (
-          <img className="playlist-detail-cover" src={playlist.cover} alt="" />
-        ) : (
-          <div className="playlist-detail-cover-empty" />
-        )}
+        <Thumb
+          className="playlist-detail-cover"
+          src={playlist.cover}
+          fallback={
+            <div className="playlist-detail-cover-empty">
+              <MusicIcon size={34} />
+            </div>
+          }
+        />
         <div className="detail-meta">
           <div className="detail-title-row">
             <div className="detail-title">{playlist.name}</div>
@@ -195,7 +200,7 @@ export default function SharedPlaylistView() {
                   {/* Not a link to /songs/{id}: that page is the owner's copy,
                       with its edit controls and its play count. */}
                   <div className="song-row-main as-text">
-                    <img className="song-row-thumb" src={song.thumbnail || undefined} alt="" />
+                    <Thumb className="song-row-thumb" src={song.thumbnail} />
                     <span className="song-row-text">
                       <span className="song-row-title">{songTitle(song)}</span>
                       <span className="song-row-artist">{song.artist || song.uploader || "Unknown"}</span>

@@ -7,13 +7,17 @@ import Avatar from "./Avatar";
 import Brand from "./Brand";
 import FeedbackModal from "./FeedbackModal";
 import Menu from "./Menu";
+import Thumb from "./Thumb";
+import { COFFEE_URL } from "../utils/support";
 import {
+  CoffeeIcon,
   FeedbackIcon,
   GaugeIcon,
   MenuIcon,
   SearchIcon,
   ShieldIcon,
   SignOutIcon,
+  SleeveIcon,
   UserIcon,
 } from "./icons";
 import { songTitle } from "../utils/format";
@@ -31,7 +35,7 @@ const SEARCH_DEBOUNCE_MS = 250;
  * ways in are rail rows, where their labels are readable without opening
  * anything.
  */
-export default function TopBar({ onToggleRail }) {
+export default function TopBar({ onToggleRail, about }) {
   const { user, isAdmin, quota, signOut } = useAuth();
   const badges = useBadges(user);
   // The rail carries the same thing, but the rail is gone under 760px and the
@@ -39,7 +43,10 @@ export default function TopBar({ onToggleRail }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
-    <header className="topbar">
+    // Signed out there is no search box (see SearchBox), so the 420px rule that
+    // trades the wordmark away for search width has nothing to trade for — it
+    // left a phone showing one button and no app name anywhere.
+    <header className={"topbar" + (user ? "" : " topbar-anon")}>
       <div className="topbar-left">
         <button
           type="button"
@@ -65,6 +72,7 @@ export default function TopBar({ onToggleRail }) {
             quota={quota}
             badges={badges}
             onSignOut={signOut}
+            about={about}
             onFeedback={() => setFeedbackOpen(true)}
           />
         ) : (
@@ -77,7 +85,7 @@ export default function TopBar({ onToggleRail }) {
   );
 }
 
-function AccountMenu({ user, isAdmin, quota, badges, onSignOut, onFeedback }) {
+function AccountMenu({ user, isAdmin, quota, badges, about, onSignOut, onFeedback }) {
   // An admin's waiting requests, or a reply to yours you haven't read. It used
   // to be a count on a rail row; the rail no longer holds the account, so it
   // rides on the avatar — the one thing on screen that is always you.
@@ -106,6 +114,14 @@ function AccountMenu({ user, isAdmin, quota, badges, onSignOut, onFeedback }) {
             <UserIcon size={16} />
             Account
           </Link>
+          {/* Also in the rail, which is gone under 760px — and this menu is
+              not. Same reason Feedback is listed twice below. */}
+          {about?.enabled && about?.in_nav && (
+            <Link to="/about" onClick={close} role="menuitem">
+              <SleeveIcon size={16} />
+              {about.nav_label}
+            </Link>
+          )}
           {isAdmin ? (
             <Link to="/admin" onClick={close} role="menuitem">
               <ShieldIcon size={16} />
@@ -136,6 +152,18 @@ function AccountMenu({ user, isAdmin, quota, badges, onSignOut, onFeedback }) {
             <FeedbackIcon size={16} />
             Feedback
           </button>
+          {/* The rail's foot carries this too, and is gone on phones — which is
+              the width where this menu is the only way to either of them. */}
+          <a
+            href={COFFEE_URL}
+            target="_blank"
+            rel="noopener"
+            role="menuitem"
+            onClick={close}
+          >
+            <CoffeeIcon size={16} />
+            Buy me a coffee
+          </a>
           <button
             type="button"
             className="danger"
@@ -213,12 +241,17 @@ function useBadges(user) {
   return badges;
 }
 
+// Secondary, not primary. The home hero and every SignInPrompt carry a primary
+// Sign in of their own, so a gradient here put two of them on screen at once and
+// made the gradient a fourth thing — it is rationed to the brand mark, the one
+// primary button, and the player fill. This is the persistent way in; the one in
+// the content is the contextual one, and only that one shouts.
 function SignInButton() {
   const navigate = useNavigate();
   return (
     <button
       type="button"
-      className="btn small"
+      className="btn small secondary"
       onClick={() => navigate("/login", { state: { from: window.location.pathname } })}
     >
       Sign in
@@ -320,7 +353,7 @@ function SearchBox() {
                 navigate(`/songs/${s.id}`);
               }}
             >
-              <img src={s.thumbnail || undefined} alt="" />
+              <Thumb className="topbar-result-thumb" src={s.thumbnail} />
               <span className="topbar-result-text">
                 <b>{songTitle(s)}</b>
                 {s.uploader && <span className="via">{s.uploader}</span>}
@@ -339,7 +372,7 @@ function SearchBox() {
                 navigate(`/lyrics/${r.id}`);
               }}
             >
-              <img src={r.video?.thumbnail || undefined} alt="" />
+              <Thumb className="topbar-result-thumb" src={r.video?.thumbnail} />
               <span className="topbar-result-text">
                 <b>{lyricsTitle(r)}</b>
                 <span className="via">{r.meaning ? "words and meaning" : "words only"}</span>

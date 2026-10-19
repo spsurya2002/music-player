@@ -1,0 +1,172 @@
+/* The About page. Prose, a strip of links and a box to write in — so the only
+   thing this file really does is set a measure and keep the paragraphs apart. */
+
+.about-sub {
+  max-width: 62ch;
+}
+
+.about-section {
+  margin-bottom: 26px;
+}
+
+.about-head {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+/* 68ch rather than the full 920px the shell allows: this is the only page in
+   the app that is read rather than scanned, and a line that runs the whole
+   width of a desktop loses its place on the way back. */
+.about-para {
+  max-width: 68ch;
+  margin: 0 0 12px;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.about-para:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- the links ---- */
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 30px;
+}
+
+.about-link-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+
+.about-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.about-link svg {
+  color: var(--muted);
+  flex: none;
+}
+
+.about-link:hover svg {
+  color: var(--accent);
+}
+
+.about-link-label {
+  font-weight: 500;
+}
+
+/* The address itself, beside the label. Written out because it is the one
+   link somebody may want to take away rather than follow — and because the
+   copy button next to it has nothing to promise otherwise. */
+.about-link-value {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.about-copy {
+  flex: none;
+}
+
+/* ---- writing in ---- */
+
+.about-contact {
+  max-width: 68ch;
+}
+
+.about-contact .about-head {
+  margin-bottom: 14px;
+}
+
+.about-fields {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.about-text {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* The honeypot. Off-screen rather than display:none, because a bot worth
+   defending against reads the stylesheet and skips anything hidden outright. */
+.about-pot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.about-hint {
+  margin-top: 10px;
+}
+
+.about-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.about-contact-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.about-contact-done svg {
+  color: var(--ok);
+  flex: none;
+  margin-top: 2px;
+}
+
+.about-contact-done p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  /* Two inputs side by side at 360px leaves each about 150px wide, which is
+     narrower than most people's email address. */
+  .about-fields {
+    flex-direction: column;
+  }
+
+  .about-links {
+    gap: 6px;
+  }
+
+  /* The address doubles the width of the email chip, and on a phone the strip
+     wraps badly enough without it. The copy button still does the same job. */
+  .about-link-value {
+    display: none;
+  }
+}

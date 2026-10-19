@@ -12,6 +12,7 @@ import SourceTag from "../components/SourceTag";
 import { PlayIcon, PauseIcon, PencilIcon, PlusIcon, TrashIcon, ExternalLinkIcon, RefreshIcon, FileAudioIcon, DownloadIcon } from "../components/icons";
 import { fmtDur, fmtSize, fmtDate, songTitle } from "../utils/format";
 import "./views.css";
+import Thumb from "../components/Thumb";
 
 export default function SongDetailView() {
   const { id } = useParams();
@@ -121,7 +122,7 @@ export default function SongDetailView() {
   return (
     <div className="view">
       <div className="detail-head">
-        <img className="detail-art" src={song.thumbnail || undefined} alt="" />
+        <Thumb className="detail-art" src={song.thumbnail} iconSize={40} />
         <div className="detail-meta">
           {!editing ? (
             <>
@@ -146,17 +147,21 @@ export default function SongDetailView() {
             </>
           ) : (
             <form onSubmit={handleSaveEdit}>
+              {/* htmlFor/id rather than nesting: .inline-edit-row lays the
+                  label and the field out as flex siblings, and these three
+                  read as labels without being ones — clicking them did
+                  nothing and no screen reader tied them to a field. */}
               <div className="inline-edit-row">
-                <label>Title</label>
-                <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                <label htmlFor="song-edit-title">Title</label>
+                <input id="song-edit-title" type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </div>
               <div className="inline-edit-row">
-                <label>Track</label>
-                <input type="text" value={form.track} onChange={(e) => setForm({ ...form, track: e.target.value })} />
+                <label htmlFor="song-edit-track">Track</label>
+                <input id="song-edit-track" type="text" value={form.track} onChange={(e) => setForm({ ...form, track: e.target.value })} />
               </div>
               <div className="inline-edit-row">
-                <label>Artist</label>
-                <input type="text" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} />
+                <label htmlFor="song-edit-artist">Artist</label>
+                <input id="song-edit-artist" type="text" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} />
               </div>
               {saveError && <Msg kind="err">{saveError}</Msg>}
               <div className="row" style={{ marginTop: 8 }}>

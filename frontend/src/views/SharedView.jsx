@@ -11,6 +11,7 @@ import { FileAudioIcon, LinkIcon, LyricsIcon, PlayIcon } from "../components/ico
 import { greeting, songTitle } from "../utils/format";
 import "./views.css";
 import "./SharedView.css";
+import Thumb from "../components/Thumb";
 
 // The three ways in, as equals. They used to be one button ("Add a reel") and a
 // paragraph that described only that one, which stopped being true the day a
@@ -114,8 +115,14 @@ export default function SharedView() {
   return (
     <div className="view">
       <header className="home-hero">
+        {/* The headline belongs to whoever is reading it. Signed in, a greeting
+            is the right thing at the top of your own library. Signed out it is
+            not: this is the only ungated route, so it is where a stranger
+            arrives, and "Good afternoon" spends the one line they are certain
+            to read on nothing. The sentence that does the work is the same one
+            the login screen leads with. */}
         <h1 className="page-title home-greeting">
-          {name ? `${greeting()}, ${name}` : greeting()}
+          {user ? (name ? `${greeting()}, ${name}` : greeting()) : "Your reels, as a music library."}
         </h1>
         {user ? (
           <p className="home-about">
@@ -171,7 +178,7 @@ export default function SharedView() {
                   onClick={() => playQueue(songs, i)}
                   aria-label={`Play ${songTitle(s)}`}
                 >
-                  {s.thumbnail ? <img src={s.thumbnail} alt="" /> : null}
+                  <Thumb src={s.thumbnail} iconSize={18} />
                   <span className="home-row-play">
                     <PlayIcon size={15} />
                   </span>
@@ -198,7 +205,7 @@ export default function SharedView() {
             {lyrics.map((r) => (
               <Link to={`/lyrics/${r.id}`} className="song home-row" key={r.id}>
                 <span className="home-row-art as-thumb">
-                  {r.video?.thumbnail ? <img src={r.video.thumbnail} alt="" /> : null}
+                  <Thumb src={r.video?.thumbnail} iconSize={18} />
                 </span>
                 <span className="home-row-main">
                   <b>{titleOf(r)}</b>

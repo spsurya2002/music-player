@@ -15,6 +15,13 @@
   font-size: 13.5px;
 }
 
+/* Pushed to the end of the working row, so the sentence keeps the left and the
+   way out of it is always in the same place. */
+.lyrics-stop {
+  margin-left: auto;
+  flex: none;
+}
+
 .lyrics-retry-hint:empty {
   display: none;
 }

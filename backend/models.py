@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.services import about_defaults
+
 
 class GoogleSignInRequest(BaseModel):
     """The ID token Google Identity Services handed the browser. Nothing else —
@@ -46,6 +48,47 @@ class LyricsRequest(BaseModel):
     past that after correcting a song's title or artist."""
 
     refresh: bool = False
+
+
+class MeaningRequest(BaseModel):
+    """Which version to read. `None` means the best one the crawler found,
+    which is what every request meant before versions could be yours.
+
+    A row carries one reading, so naming a different version here replaces the
+    one already there — and spends another use doing it.
+    """
+
+    version: str | None = None
+
+
+class AddMyLyricsRequest(BaseModel):
+    """Words someone typed or pasted in themselves.
+
+    `label` is what the switcher calls this version. Left out, it is named
+    after the script the words are written in, the way the crawler's own
+    versions are — so "हिन्दी" sits next to "हिन्दी" and reads as the same kind
+    of thing rather than as an exception.
+    """
+
+    text: str = ""
+    label: str | None = None
+
+
+class MyLyricsPatchRequest(BaseModel):
+    """Correct a version already saved. Both fields are optional: sent as null
+    means "leave it", which is why neither has a default of empty string."""
+
+    text: str | None = None
+    label: str | None = None
+
+
+class LyricsNamesRequest(BaseModel):
+    """What to call a lookup. A crawl that found nothing has no `resolved`
+    names, so the only title it has is the raw thing that was pasted — these
+    are what the page shows instead, and what the reading is asked about."""
+
+    title: str | None = None
+    artist: str | None = None
 
 
 class LyricsSearchRequest(BaseModel):
@@ -150,11 +193,12 @@ class LimitsBody(BaseModel):
     reel: int | None = Field(default=None, ge=0, le=100_000)
     file: int | None = Field(default=None, ge=0, le=100_000)
     lyrics: int | None = Field(default=None, ge=0, le=100_000)
+    meaning: int | None = Field(default=None, ge=0, le=100_000)
 
     def changes(self) -> dict:
         return {
             f: getattr(self, f)
-            for f in ("reel", "file", "lyrics")
+            for f in ("reel", "file", "lyrics", "meaning")
             if f in self.model_fields_set
         }
 
@@ -163,3 +207,67 @@ class ResolveLimitRequest(BaseModel):
     decision: Literal["approve", "decline"]
     reply: str = Field(default="", max_length=1000)
     limits: LimitsBody | None = None
+
+
+# --- the About page ---------------------------------------------------------
+
+
+class AboutSection(BaseModel):
+    """One headed block on /about. The body is plain text; a blank line starts
+    a new paragraph and that is the whole of the formatting."""
+
+    id: str = Field(default="", max_length=60)
+    heading: str = Field(default="", max_length=about_defaults.MAX_HEADING)
+    body: str = Field(default="", max_length=about_defaults.MAX_BODY)
+
+
+class AboutLink(BaseModel):
+    """One entry in the contact strip. An empty `value` is how a link is
+    hidden — that is what keeps the Résumé button off the page until there is
+    a URL to put behind it, without needing a second flag per link."""
+
+    kind: str = Field(default="site", max_length=20)
+    label: str = Field(default="", max_length=40)
+    value: str = Field(default="", max_length=500)
+
+
+class AboutBody(BaseModel):
+    """The whole About document, replaced in one go.
+
+    One Save button on the form, so one PUT — a field-level patch API would be
+    three times the code to express the same edit, and the admin is a single
+    person who is not racing themselves.
+    """
+
+    enabled: bool = True
+    # Separate from `enabled` on purpose: taking the rail entry down is not the
+    # same as taking the page down. A URL already sitting in a résumé keeps
+    # working while the app stops advertising it.
+    in_nav: bool = True
+    nav_label: str = Field(default="", max_length=30)
+    nav_mini_label: str = Field(default="", max_length=12)
+    title: str = Field(default="", max_length=80)
+    subtitle: str = Field(default="", max_length=300)
+    sections: list[AboutSection] = Field(
+        default_factory=list, max_length=about_defaults.MAX_SECTIONS
+    )
+    links: list[AboutLink] = Field(default_factory=list, max_length=about_defaults.MAX_LINKS)
+    contact_enabled: bool = True
+    contact_heading: str = Field(default="", max_length=80)
+    contact_hint: str = Field(default="", max_length=300)
+    contact_sent: str = Field(default="", max_length=300)
+
+
+class ContactRequest(BaseModel):
+    """Someone writing in from /about — possibly with no account at all.
+
+    `website` is a honeypot: it is hidden from people and left empty by them,
+    so anything in it came from something filling every field it found.
+    """
+
+    name: str = Field(default="", max_length=120)
+    email: str = Field(default="", max_length=200)
+    # The floor is checked in the router after trimming, as FeedbackRequest
+    # does, because ten spaces are not ten characters.
+    message: str = Field(default="", max_length=2000)
+    website: str = Field(default="", max_length=200)

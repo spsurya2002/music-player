@@ -1,0 +1,82 @@
+/* The offer that replaces a dead end.
+ *
+ * Shaped like .lyrics-keep in views/LyricsView.css — the same tinted bar of a
+ * sentence and the buttons that settle it, because it is the same kind of
+ * moment: something has happened and the page is asking what to do about it.
+ * Its own file rather than a block in that one, since the song page shows this
+ * panel without loading the Lyrics views at all.
+ */
+.lyrics-nowords {
+  border: 1px solid rgba(214, 51, 108, 0.4);
+  border-radius: 10px;
+  background: rgba(214, 51, 108, 0.1);
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.lyrics-nowords-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lyrics-nowords-main .lyrics-keep-text,
+.lyrics-nowords-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.lyrics-nowords-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.lyrics-nowords-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.lyrics-nowords .btn {
+  flex: none;
+}
+
+/* A plain sentence you can press, not a button — naming the thing is optional
+   and should not compete with the three answers above it. */
+.lyrics-nowords-name {
+  display: block;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.lyrics-nowords-name:hover {
+  color: var(--text);
+}
+
+.lyrics-nowords-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(214, 51, 108, 0.25);
+}
+
+.lyrics-nowords-form .row {
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .lyrics-nowords-main {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

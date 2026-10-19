@@ -257,18 +257,64 @@ New, built from the same recipes:
   thing you came for. Folding it keeps the sound and drops the video to a title
   bar (a height change, never unmounting the iframe). It steps 320px left when
   the queue drawer is open rather than stacking over it, and on phones it spans
-  the width above the tabs. Stacking: 95, under the player bar and over the rail.
+  the width above the tabs. Stacking: 120 — over the top bar, the player bar and the
+  book's full view, under a modal.
 - **LyricsBook** — the reading view, and the only place in the app with a serif.
   A facing-page spread: the words (plus their romanisation) on the left, the
-  line-by-line reading on the right, turned four couplets at a time with
-  ◀ ▶ or the arrow keys. The pairing is the point — stacked, you have to hold a
-  line in your head while you scroll to find its meaning. The book feeling has
-  to come from something other than paper, since the app is dark only, so it
-  comes from a real gutter with a shadow falling into it, page numbers in the
-  outer corners, and a local serif for the verse (`Georgia`, no web font). **The
+  line-by-line reading on the right, turned four couplets at a time. The pairing
+  is the point — stacked, you have to hold a line in your head while you scroll
+  to find its meaning. The book feeling has to come from something other than
+  paper, since the app is dark only, so it comes from a real gutter with a
+  shadow falling into it, page numbers in the outer corners, a local serif for
+  the verse (`Georgia`, no web font), and a page that actually turns. **The
   right page stays blank until a reading is asked for**, which is the step that
   costs — an empty page beside full words says so better than a banner. Phones
   stack the two pages, so a couplet still sits directly above its reading.
+  - **The turn** is a real leaf, not a fade: one absolutely positioned page with
+    two faces, hinged on the spine and rotated in 3D under a `2200px`
+    perspective, with `backface-visibility` swapping the faces as it passes
+    edge-on. Going forward the leaf *is* the right page — its back is the next
+    spread's left page, so when it lands flat the content underneath has already
+    become the same thing and dropping the leaf changes nothing on screen.
+    Phones have one column, so there the leaf is the whole spread hinged at its
+    left edge and its back is blank, because the back of a page is. Light does
+    the rest: a gradient on each face that is darkest at the spine, plus the
+    shadow the standing leaf throws on the page it is uncovering. 620ms on
+    `cubic-bezier(.37,.09,.23,1)` — slow off the mark, quick through the middle.
+  - **Drag it across** (pointer events, so a mouse and a finger are the same
+    code), or ◀ ▶, or the arrow keys. A drag claims the pointer only after 10px
+    that beat its own vertical travel, so scrolling still wins the toss, and
+    `touch-action: pan-y` says the same thing to the browser. Let go past a
+    third of the way, or flick it, and it finishes; short of that it falls back.
+    A released drag's remaining travel sets its own duration, so a page let go
+    at four fifths does not then take the full 620ms. Pressing ▶ again mid-turn
+    queues rather than being swallowed — people press it four times.
+  - **It makes a sound**, synthesised in `utils/pageSound.js` rather than
+    shipped: noise through a sweeping bandpass under a fast envelope, two
+    overlapping swishes, randomised a little each turn so forty pages don't
+    sound like a machine. Quiet, under half a second, and not a second player —
+    the rule about never two sounds at once is about music, and a page rustling
+    over the song you are reading along to is the point. A speaker toggle sits
+    at the right of the turn bar and the choice is remembered in `localStorage`.
+  - **Whose words these are** is marked at the left of the turn bar: a pill reading
+    *Added by you* in the accent tint, or *Found at <site>* in `--line`/`--muted`, with
+    the long version in its `title`. The switcher above the book says the same thing,
+    but it has scrolled off by the second spread and is not on the screen at all in
+    full view — and "did a person type this or did a crawler find it" is exactly the
+    question that comes up while reading, not before. The drag hint shares the slot and
+    is the half that gives way when there is no room.
+  - **Full view** takes the book to the whole window — an `.icon-btn` at the right
+    of the turn bar, Escape or the same button to come back out, and the title in a
+    thin header because the page's own is now behind it. It is a fixed overlay at
+    `z-index: 115`, *not* the Fullscreen API: a real fullscreen element paints alone,
+    which would take the YouTube dock off the screen at the exact moment somebody
+    settles in to read with the song playing. 115 is above the top bar (110) and under
+    the dock (120), so the page goes and the dock stays where it was left. The pages
+    give the extra width back as margin rather than as longer lines, and `--book-h`
+    stops being a clamp of the viewport. This is also why the turn bar renders for a
+    one-spread book, with the pager and the sound toggle left out of it.
+  - `prefers-reduced-motion: reduce` gets none of it: the leaf is never built,
+    dragging is off, and the page simply changes.
 - **LyricsSection** — the third `.detail-section` on a song page, and the longest block
   in the app, so it leans on inset depth to stay readable: the words and each explained
   line sit in a `--field` well with a `--line` border at radius 9, matching `.ident-log`.
@@ -284,6 +330,49 @@ New, built from the same recipes:
   at the foot — said once, after the thing it qualifies, never as a banner over it. On
   phones the `<ol>` drops its markers and padding, because the line number is already in
   the text above.
+
+- **NoWordsPanel** — what a lookup that found nothing offers instead of a dead end.
+  Shaped on `.lyrics-keep`: the same accent-tinted bar at radius 10, a 13.5px `--accent`
+  title over a 12.5px `--muted` line, and the buttons that settle it ranged right —
+  **Add the words** primary, Keep it `.secondary`, Discard `.ghost`. The question is the
+  point: the crawler refusing to guess is it working, but the song is usually on the open
+  web in ten seconds, so the next thing on screen is somewhere to put it. Under it, a
+  plain underlined sentence opens a two-field `.inline-edit-row` form for naming the
+  lookup — optional, and set as a sentence rather than a fourth button so it never
+  competes with the three answers above. It wears the same shape after a Stop, with the
+  first line reworded; stopping is a reason to have no words like any other.
+  **Every "there are no words" notice is conditional on that still being true.** The
+  panel, the stopped block and the failure sentence all go the moment there is
+  something to read — a crawl that worked, or words somebody typed in — because a
+  question asked over its own answer reads as the page not having noticed. The failure
+  sentence goes further and leaves on its own after five seconds (`.lyrics-said`, a
+  400ms fade): it explains an empty page, and once it has been read it is only a page
+  that still looks broken. Nothing is lost — while it is still true, the panel under it
+  says the same thing and offers somewhere to put the words.
+- **RenameLyricsModal** — what to call a lookup, from anywhere it is listed. A plain
+  `Modal` with the song page's two `.inline-edit-row` fields (Song · Artist), reached by
+  a pencil `.icon-btn` in the lookup's header and on every row of All lyrics and a
+  collection. A lookup is filed under whatever started it, which is usually a YouTube
+  URL — a crawl that found nothing resolved no names, and one that found the wrong song
+  resolved confident wrong ones, and neither is fixable by looking again. Emptying the
+  Song box takes a name back off and lets whatever the crawl resolved show through, but
+  a row with no name of its own cannot be saved nameless. NoWordsPanel keeps its own
+  underlined sentence: the same write, offered at the moment it is first needed.
+- **AddLyricsModal** — `Modal` at 560, wider than the rest because the thing going into it
+  is a whole song. One `textarea` at `min-height: 220px`, `line-height: 1.7` and
+  `dir="auto"`, so Urdu pasted into it reads right-to-left as you type it; an optional
+  label field under it; and a character count at 12px tabular numerals that turns `--err`
+  past the 12,000 the sidecar will read. The same form edits a version, and warns in a
+  `.msg.info` when the words being changed are the ones a reading was made from.
+- **The version switcher** — `.lyrics-scripts`, the `.pill` row under the source line.
+  The finder's per-script candidates come first, then a 1px `--line` hairline, then yours,
+  then `+ Add yours` last. Your pills are dashed until selected, and `+ Add yours` stays
+  dashed and `--muted` always, because it opens a box rather than changing what is on
+  screen. Selecting one of yours swaps the confidence badge for a `Yours` badge in the
+  accent tint and two `.icon-btn`s — pencil and bin. A song holds one reading, so a
+  version without it gets a `--field` strip saying which version has it and offering to
+  read this one instead; the book's own explain button is off while that strip is up, so
+  the one action that replaces a paid-for reading is never the easy one to hit by accident.
 
 - **Menu** — `components/Menu.jsx`, the dropdown behind the avatar:
   elevated surface, `--line` border, 10px radius, a shadow deep enough to float over a

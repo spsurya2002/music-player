@@ -4,15 +4,26 @@ import { useAuth } from "../context/AuthContext";
 import Msg from "./Msg";
 import "./Quota.css";
 
-// The three paid features and how they're named everywhere in the UI. The
-// server's sentences use the same words ("reel extractions", "file lookups",
-// "lyric lookups"), so these must keep matching backend/services/quota.py.
-// `short` is for the admin chips and mini-meters, where there is room for one
-// word and the full title would wrap.
+// The paid features and how they're named everywhere in the UI. The server's
+// sentences use the same words ("reel extractions", "file lookups", "lyric
+// lookups", "lyric readings"), so these must keep matching
+// backend/services/quota.py. `short` is for the admin chips and mini-meters,
+// where there is room for one word and the full title would wrap.
+//
+// The two halves of a lyrics lookup are two features because they cost two
+// different things: finding the words is a crawl, explaining them is a model
+// call and a bill, which is why that one's allowance is the smallest in the
+// app. Everything that lists limits is driven off this object.
 export const FEATURES = {
   reel: { title: "Reel → MP3", short: "Reels", unit: "reel extraction", units: "reel extractions" },
   file: { title: "File → YouTube", short: "Files", unit: "file lookup", units: "file lookups" },
-  lyrics: { title: "Song → Meaning", short: "Lyrics", unit: "lyric lookup", units: "lyric lookups" },
+  lyrics: { title: "Song → Words", short: "Lyrics", unit: "lyric lookup", units: "lyric lookups" },
+  meaning: {
+    title: "Words → Meaning",
+    short: "Meanings",
+    unit: "lyric reading",
+    units: "lyric readings",
+  },
 };
 
 // "3 of 5 reel extractions left · Ask for more", under the form that spends

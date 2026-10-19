@@ -113,10 +113,22 @@
   margin-bottom: 18px;
 }
 
+/* .sub carries 22px of bottom margin for a normal page, which inside a flex-end
+   head would push the title block past the controls it is meant to line up
+   with. Both library heads used to zero it with an inline style each. */
+.view-head .sub {
+  margin-bottom: 0;
+}
+
+/* stretch, not center: a <select> and an <input> with identical padding and
+   type size still measure their own height differently — about a pixel apart —
+   and side by side in a head that is mostly these two, that reads as sloppy.
+   Stretching makes them the same height by construction, whatever the browser
+   thinks each one's natural height is. */
 .view-head-controls {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
   flex-wrap: wrap;
 }
 
@@ -145,11 +157,96 @@
   gap: 2px;
 }
 
+/* While a new sort or search is in flight. The rows on screen are the answer to
+   the previous question, and nothing else said so. */
+.song-list.is-stale {
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+/* ---- library actions and selection ---- */
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.library-actions .btn svg {
+  margin-right: 6px;
+}
+
+.library-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Sticks under the top bar so the actions stay reachable while you scroll a
+   long library picking rows — a selection bar you have to scroll back up to is
+   a selection you abandon. */
+.select-bar {
+  position: sticky;
+  top: calc(var(--topbar-h) + 8px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+}
+
+.select-bar-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.select-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.select-bar-actions .btn svg {
+  margin-right: 6px;
+}
+
+@media (max-width: 560px) {
+  .select-bar-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .select-bar-actions .btn {
+    flex: 1;
+  }
+
+  /* Each button already has the row to itself here, so the icon sits tight
+     against its label rather than spacing out across the width. */
+  .select-bar-actions .btn svg {
+    margin-right: 4px;
+  }
+}
+
 /* ---- playlists grid ---- */
 
+/* 180, not 160: auto-fill keeps the empty tracks, so a feed with two playlists
+   left two 160px cards against 900px of nothing, with "Shared by Surya Pra…"
+   truncated inside them. At 180 the row is four cards of ~216px and the owner
+   line fits. auto-fill stays — auto-fit would collapse the empty tracks and
+   stretch two cards to 450px each, which is the same problem inverted. */
 .playlist-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 18px;
 }
 
@@ -266,11 +363,16 @@
   flex: none;
 }
 .playlist-detail-cover-empty {
+  /* The gradient block stays (docs/DESIGN.md), with the note on top so an
+     empty cover says what it is instead of reading as a loading state. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
   width: 140px;
   height: 105px;
   border-radius: 14px;
-  background: var(--gradient);
-  opacity: 0.35;
+  background: var(--gradient-soft);
   flex: none;
 }
 

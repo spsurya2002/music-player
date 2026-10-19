@@ -33,12 +33,15 @@ lyrics_sets_col = None
 holds_col = None
 requests_col = None
 feedback_col = None
+contact_col = None
+settings_col = None
 storage: Storage | None = None
 
 
 def connect() -> None:
     global client, db, songs_col, playlists_col, users_col, sessions_col, ingest_col, storage
     global holds_col, requests_col, lyrics_col, lyrics_sets_col, feedback_col
+    global contact_col, settings_col
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
     songs_col = db["songs"]
@@ -51,6 +54,11 @@ def connect() -> None:
     holds_col = db["quota_holds"]
     requests_col = db["limit_requests"]
     feedback_col = db["feedback"]
+    contact_col = db["contact_messages"]
+    # One document per setting, keyed by a string _id ("about"). Not a
+    # config file: these are things the admin changes at runtime, from a
+    # form, on an instance nobody is going to redeploy to fix a typo.
+    settings_col = db["settings"]
     storage = Storage(db)
 
 
@@ -190,6 +198,17 @@ async def _ensure_feedback_indexes() -> None:
     await feedback_col.create_index([("user_id", 1), ("created_at", -1)])
 
 
+async def _ensure_contact_indexes() -> None:
+    """Messages sent from the About page (backend/routers/contact.py).
+
+    Read across users like feedback, and by an admin only, so newest-first is
+    the one index the inbox needs. There is deliberately no per-sender index:
+    a sender has no account to key on, which is the whole reason that route
+    carries its own rate limiting instead of a session.
+    """
+    await contact_col.create_index([("created_at", -1)])
+
+
 async def create_indexes() -> None:
     await _ensure_song_indexes()
     await _ensure_playlist_indexes()
@@ -199,6 +218,7 @@ async def create_indexes() -> None:
     await _ensure_lyrics_indexes()
     await _ensure_lyrics_set_indexes()
     await _ensure_feedback_indexes()
+    await _ensure_contact_indexes()
     await _drop_legacy_indexes()
 
 

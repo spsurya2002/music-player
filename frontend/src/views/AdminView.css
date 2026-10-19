@@ -79,6 +79,28 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.admin-row.selected {
+  background: var(--accent-tint);
+}
+
+/* Takes the avatar's slot rather than adding a column, so ticking rows does not
+   reflow the list sideways. 34px to match the avatar exactly. */
+.admin-row-check {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-row-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .admin-row-main {
   display: flex;
   align-items: center;
@@ -206,6 +228,23 @@
    controls read as belonging to the row above them. */
 .admin-panel {
   padding: 2px 18px 16px 64px;
+}
+
+/* The bulk answer sits above the list rather than inside a row, so it keeps the
+   full gutter and a border to separate it from the rows it will act on. */
+.admin-bulk {
+  padding: 14px 18px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-bulk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
 }
 .admin-panel-label {
   font-size: 12px;
@@ -542,4 +581,245 @@
 .admin-thread {
   max-height: 260px;
   overflow-y: auto;
+}
+
+/* ---- the About page editor ---- */
+
+.about-edit {
+  margin-bottom: 14px;
+}
+
+.about-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* .mhead carries its own bottom margin, which doubles up inside the flex row
+   above and leaves the Add button sitting high. */
+.about-edit-head .mhead {
+  margin-bottom: 0;
+}
+
+.about-edit-note {
+  margin-top: 8px;
+  margin-bottom: 14px;
+}
+
+.about-edit-field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.about-edit-field input {
+  width: 100%;
+}
+
+.about-edit-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.about-edit-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.about-edit-pair {
+  display: flex;
+  gap: 10px;
+}
+
+.about-edit-pair .about-edit-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- sections ---- */
+
+.about-edit-section {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--bg);
+}
+
+.about-edit-section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.about-edit-section-head input {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.about-edit-section textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* The chevron points right at rest, so up and down are quarter turns of the
+   one icon rather than two more paths in icons.jsx. */
+.about-edit-arrow {
+  display: inline-flex;
+}
+
+.about-edit-arrow.up {
+  transform: rotate(-90deg);
+}
+
+.about-edit-arrow.down {
+  transform: rotate(90deg);
+}
+
+/* ---- links ---- */
+
+.about-edit-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.about-edit-link select {
+  flex: none;
+  width: 104px;
+  padding: 10px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* Qualified by the row rather than left as one class: the shared
+   input[type="text"] rule in components.css sets flex:1, and an attribute
+   selector outranks a bare class. This outranks it back without an
+   !important. */
+.about-edit-link input.about-edit-link-label {
+  flex: none;
+  width: 110px;
+}
+
+.about-edit-link input {
+  font-size: 13px;
+  padding: 10px 11px;
+}
+
+/* ---- the switches ---- */
+
+.about-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.about-switch + .about-switch {
+  border-top: 1px solid var(--line);
+}
+
+.about-switch.disabled {
+  opacity: 0.5;
+}
+
+.about-switch-track {
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 23px;
+  margin-top: 1px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--field);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* On is said twice — the fill moves and the colour changes — so the state does
+   not rest on hue alone. */
+.about-switch-track.on {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+
+.about-switch-track:disabled {
+  cursor: default;
+}
+
+.about-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.about-switch-track.on .about-switch-knob {
+  transform: translateX(17px);
+  background: var(--accent);
+}
+
+.about-switch-label {
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.about-switch-sub {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---- the foot ---- */
+
+.about-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* <Link> styled as a button needs the line-height a real button gets for free. */
+.about-edit-actions .btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .about-edit-pair {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Three controls and a bin on one row needs about 420px. Stacked, the select
+     and the label sit side by side and the address gets the full width. */
+  .about-edit-link {
+    flex-wrap: wrap;
+  }
+
+  .about-edit-link input:not(.about-edit-link-label) {
+    order: 3;
+    width: 100%;
+    flex-basis: 100%;
+  }
 }

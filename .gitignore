@@ -10,3 +10,7 @@ uploads/
 lyrics-node/node_modules/
 lyrics-node/dist/
 backend/lyrics-cache/
+
+# ui-expert review workspace (audit output, screenshots); flows are shared
+.ui-expert/*
+!.ui-expert/flows/

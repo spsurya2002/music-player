@@ -42,11 +42,20 @@ LYRICS_BLOCKED = "The search engines turned us away this time — try again in a
 UNNAMED_SONG = "We don't know what this song is yet — identify it first, then try again."
 LYRICS_OFFLINE = "The lyrics service isn't running — start the app with ./run.sh and try again."
 MISSING_LYRICS = "That lyrics lookup is no longer saved."
-NO_WORDS_YET = "Find the words first — there's nothing to read yet."
+LYRICS_STOPPED = "You stopped this one. Look again whenever you like."
+MEANING_STOPPED = "You stopped the reading. Ask for it again whenever you like."
+NO_WORDS_YET = "There are no words on this one yet — find them, or add your own."
 MISSING_LYRICS_SET = "That collection doesn't exist any more."
 MISSING_SET_NAME = "Give the collection a name."
 MISSING_LYRICS_QUERY = "Paste a YouTube link, or type a song name."
 LYRICS_QUERY_TOO_LONG = "That's too long to search for — a song name or a link is enough."
+
+# Words someone added themselves. Nothing here costs a crawl or a model call,
+# so these are all about the shape of what was typed rather than about limits.
+MISSING_LYRICS_TEXT = "Paste the words first — there's nothing to save yet."
+LYRICS_TEXT_TOO_LONG = "That's longer than we can read — 12,000 characters is the most."
+MISSING_MY_LYRICS = "Those words aren't saved any more."
+TOO_MANY_VERSIONS = "That's as many versions as one song can hold — edit or delete one first."
 
 NOT_SHARED = "That playlist isn't shared."
 MISSING_SHARED_SONG = "That song isn't in a shared playlist any more."
@@ -82,6 +91,30 @@ MISSING_NOTE_TEXT = "Type your question first."
 # A thread only runs while the request is open. Once it's answered the next
 # thing to send is a new request, which the Plan page already offers.
 NOTE_ON_CLOSED_REQUEST = "That request has been answered — send a new one instead."
+WITHDRAW_CLOSED_REQUEST = "That request has already been answered, so there's nothing to take back."
 NOTE_THREAD_FULL = "This thread is full — the admin has everything they need."
 MISSING_USER = "That account doesn't exist."
 BUSY_QUOTA = "Too much started at once — try that again in a moment."
+
+
+# --- the About page and writing to the developer ----------------------------
+
+# Deliberately vague about which limit was hit and how long is left: a sender
+# who meant it will try tomorrow, and a script learns nothing it can time
+# around. Still a sentence, and still says what to do next.
+CONTACT_TOO_SOON = "That's a few messages already — give it an hour and send the rest."
+CONTACT_TOO_MANY = "That's as many as one day takes. Try again tomorrow."
+CONTACT_CLOSED_TODAY = "The message box has had a busy day — try again tomorrow, or email instead."
+CONTACT_MISSING_NAME = "Put your name in, so there's something to reply to you by."
+CONTACT_MISSING_EMAIL = "Leave an email address, or there's no way to write back."
+MISSING_MESSAGE = "That message is already gone."
+
+# The About page is one document the admin edits, so these are all about the
+# shape of what the form sent rather than about anything being missing.
+ABOUT_NO_TITLE = "Give the page a title — it's the first thing anyone reads."
+ABOUT_NO_NAV_LABEL = "Name the rail entry, or there's nothing to click."
+ABOUT_EMPTY_SECTION = "Every section needs a heading and something under it."
+
+
+def contact_too_short(minimum: int) -> str:
+    return f"Tell them a bit more — {minimum} characters at least."

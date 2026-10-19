@@ -326,6 +326,7 @@ export default function IdentifyView() {
                   <input
                     type="text"
                     placeholder="Wrong song? Search by name or a line you caught…"
+                    aria-label="Search for the right song by name or a line you caught"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     autoComplete="off"

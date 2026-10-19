@@ -35,8 +35,43 @@ function textOf($: CheerioAPI, selector: string): string | null {
   return joined.length >= 60 ? joined : null;
 }
 
+/**
+ * Rekhta (and its Sufi sibling Sufinama) are the standing reference for Urdu
+ * ghazal and qawwali, and they are the sites a search engine is least likely
+ * to hand us. They render nothing server-side: the poem ships as escaped HTML
+ * in a hidden input, one <span> per word, so that tapping a word can show its
+ * meaning. `.text()` on the page therefore returns the furniture and not a
+ * single line of the poem.
+ *
+ * Inside that payload each `div.w` is one couplet, `div.c` holds it as written
+ * and `div.t` the English translation — which is someone's reading of the poem
+ * and not the words of it, so it is left behind.
+ */
+function fromRekhta($: CheerioAPI): string | null {
+  const payload = $('#HtmlRawText').attr('data-html');
+  if (!payload) return null;
+
+  const $$ = cheerio.load(payload, null, false);
+  const couplets: string[] = [];
+
+  $$('div.w').each((_, couplet) => {
+    const lines: string[] = [];
+    $$(couplet)
+      .find('div.c p')
+      .each((_, line) => {
+        const text = $$(line).text().replace(/\s+/g, ' ').trim();
+        if (text) lines.push(text);
+      });
+    if (lines.length > 0) couplets.push(lines.join('\n'));
+  });
+
+  const text = couplets.join('\n\n');
+  return text.length >= 60 ? text : null;
+}
+
 /** Per-site selectors, tried before the generic heuristic. */
-const SITE_RULES: Array<{ match: RegExp; selectors: string[] }> = [
+const SITE_RULES: Array<{ match: RegExp; selectors?: string[]; read?: ($: CheerioAPI) => string | null }> = [
+  { match: /rekhta\.org$|sufinama\.org$/, read: fromRekhta },
   { match: /genius\.(com|it)$/, selectors: ['div[data-lyrics-container="true"]', '.lyrics', '.Lyrics__Container'] },
   {
     match: /azlyrics\.com$/,
@@ -328,7 +363,9 @@ export function extractLyrics(html: string, url: string): ExtractedPage {
 
   for (const rule of SITE_RULES) {
     if (!rule.match.test(host)) continue;
-    for (const selector of rule.selectors) {
+    const read = rule.read?.($);
+    if (read) return { lyrics: postProcess(read), pageTitle, ...metadata, strategy: 'site-rule' };
+    for (const selector of rule.selectors ?? []) {
       const text = textOf($, selector);
       if (text) return { lyrics: postProcess(text), pageTitle, ...metadata, strategy: 'site-rule' };
     }

@@ -24,10 +24,14 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.models import (
     AddLyricsRequest,
+    AddMyLyricsRequest,
     CreateLyricsSetRequest,
+    LyricsNamesRequest,
     LyricsRequest,
     LyricsSearchRequest,
     LyricsSetPatchRequest,
+    MeaningRequest,
+    MyLyricsPatchRequest,
 )
 from backend.serializers import lyrics_set_to_dict, lyrics_to_dict, now
 from backend.services import lyrics_jobs
@@ -86,6 +90,21 @@ async def start_search(body: LyricsSearchRequest, user: CurrentUser):
     request.
     """
     row = await lyrics_jobs.enqueue_search(body.q, user.id, refresh=body.refresh)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
+@router.post("/songs/{song_id}/lyrics/mine", status_code=201)
+async def add_my_lyrics_for_song(song_id: str, body: AddMyLyricsRequest, user: CurrentUser):
+    """Add your own words to a song, with or without a lookup behind them.
+
+    The row may not exist yet — this is the path for a song nobody has looked
+    up, where the answer to "where do these words go" is "nowhere, until now".
+    So it makes one, in `manual`: honest about the fact that no crawler was
+    involved, and inert to the worker, which only claims queued rows.
+    """
+    song = await _get_song_or_404(song_id, user.id)
+    row = await lyrics_jobs.ensure_row_for_song(song, user.id)
+    row = await lyrics_jobs.add_mine(user.id, str(row["_id"]), body.text, body.label)
     return {"lyrics": lyrics_to_dict(row)}
 
 
@@ -242,15 +261,84 @@ async def keep_lyrics(row_id: str, user: CurrentUser):
     return {"lyrics": lyrics_to_dict(row)}
 
 
+@router.post("/lyrics/{row_id}/stop")
+async def stop_lyrics(row_id: str, user: CurrentUser):
+    """Stop a lookup that is still going, whichever half of it is running.
+
+    Queued work never starts. Work already out at the sidecar is left to finish
+    — a crawl runs on a thread, threads don't cancel, and cutting the worker
+    loose would have it start a second crawl while the first was still going,
+    which is how the sidecar gets itself blocked. Its answer is discarded
+    instead, so nothing lands on the row and a stopped reading costs nothing.
+
+    Not an error if it has already finished: the row comes back as it is, which
+    is what the page needs either way.
+    """
+    row = await lyrics_jobs.cancel(user.id, row_id)
+    if not row:
+        raise errors.AppError(errors.MISSING_LYRICS, 404)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
 @router.post("/lyrics/{row_id}/meaning", status_code=202)
-async def start_meaning(row_id: str, user: CurrentUser):
-    """Read the words we already found. The paid half.
+async def start_meaning(row_id: str, body: MeaningRequest | None = None, *, user: CurrentUser):
+    """Read words this row already has. The paid half.
 
     Separate from finding them because the two cost different things: a crawl is
     ours to spend, a model call is money. 202 and the row to poll — the call
     runs well past what a tunnelled request is allowed to hold open.
+
+    `version` picks which words: one of your own, or omitted for the best the
+    crawler found. A row carries one reading, so a different version replaces
+    the one there and costs another use — the page asks first.
     """
-    row = await lyrics_jobs.enqueue_meaning(user.id, row_id)
+    version = body.version if body else None
+    row = await lyrics_jobs.enqueue_meaning(user.id, row_id, version)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
+# --- words of your own ------------------------------------------------------
+#
+# All under /lyrics/{row_id}/..., which is what keeps them out of the trap the
+# collections routes above are declared early to avoid: a literal second
+# segment can never be read as a row id.
+#
+# Free, every one of them. There is no crawl and no model call behind somebody
+# pasting what they found themselves, and charging for it would put a price on
+# the answer to our own failure. Each returns the whole row, the way keep and
+# meaning do, so the page is always one setRow away from correct.
+
+
+@router.patch("/lyrics/{row_id}")
+async def patch_lyrics(row_id: str, body: LyricsNamesRequest, user: CurrentUser):
+    """Name a lookup. A crawl that found nothing resolved no title, so without
+    this the page has nothing to show but the URL that was pasted."""
+    row = await lyrics_jobs.set_names(user.id, row_id, body.title, body.artist)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
+@router.post("/lyrics/{row_id}/mine", status_code=201)
+async def add_my_lyrics(row_id: str, body: AddMyLyricsRequest, user: CurrentUser):
+    """Add words of your own. Also keeps the row: a lookup you have bothered to
+    type the words into is one you meant to keep."""
+    row = await lyrics_jobs.add_mine(user.id, row_id, body.text, body.label)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
+@router.patch("/lyrics/{row_id}/mine/{version_id}")
+async def patch_my_lyrics(
+    row_id: str, version_id: str, body: MyLyricsPatchRequest, user: CurrentUser
+):
+    """Correct a version. Changing the words of the version a reading was made
+    from drops that reading, because it explains them line by line and would
+    otherwise be a commentary on a text that no longer exists."""
+    row = await lyrics_jobs.edit_mine(user.id, row_id, version_id, body.text, body.label)
+    return {"lyrics": lyrics_to_dict(row)}
+
+
+@router.delete("/lyrics/{row_id}/mine/{version_id}")
+async def delete_my_lyrics(row_id: str, version_id: str, user: CurrentUser):
+    row = await lyrics_jobs.delete_mine(user.id, row_id, version_id)
     return {"lyrics": lyrics_to_dict(row)}
 
 

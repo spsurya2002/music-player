@@ -20,7 +20,11 @@ export default function SignInPrompt({ icon, title, children }) {
   return (
     <div className="signin-prompt">
       {icon && <div className="signin-prompt-icon">{icon}</div>}
-      <h2 className="signin-prompt-title">{title}</h2>
+      {/* An h1, not an h2: this replaces the view's whole contents, so on a
+          gated route it is the only heading on the page. As an h2 it left ten
+          routes with no h1 at all, which is what a screen reader's "jump to
+          the heading" lands on. The class keeps the size it always had. */}
+      <h1 className="signin-prompt-title">{title}</h1>
       <p className="signin-prompt-line">{children}</p>
       {/* A session that ended on its own has to say so here. Nothing takes you
           to the login screen any more, so this is the only place that answer

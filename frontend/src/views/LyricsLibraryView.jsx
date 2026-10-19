@@ -5,6 +5,7 @@ import Msg from "../components/Msg";
 import { LyricsIcon, PlusIcon } from "../components/icons";
 import "./views.css";
 import "./LyricsView.css";
+import Thumb from "../components/Thumb";
 
 /**
  * The lyrics library: All, then whatever you've grouped.
@@ -101,7 +102,9 @@ export default function LyricsLibraryView() {
             the library rather than a view of it. */}
         <Link to="/lyrics/all" className="card lyrics-set lyrics-set-all">
           <span className="lyrics-set-cover">
-            {allCover ? <img src={allCover} alt="" /> : <LyricsIcon size={26} />}
+            {/* Keeps its own icon rather than the note: this tile is every
+                lyric you've saved, not a song. */}
+            <Thumb src={allCover} fallback={<LyricsIcon size={26} />} />
           </span>
           <span className="lyrics-set-name">All lyrics</span>
           <span className="lyrics-set-sub">
@@ -116,7 +119,7 @@ export default function LyricsLibraryView() {
         {(collections || []).map((c) => (
           <Link key={c.id} to={`/lyrics/collections/${c.id}`} className="card lyrics-set">
             <span className="lyrics-set-cover">
-              {c.cover ? <img src={c.cover} alt="" /> : null}
+              <Thumb src={c.cover} iconSize={22} />
             </span>
             <span className="lyrics-set-name">{c.name}</span>
             <span className="lyrics-set-sub">

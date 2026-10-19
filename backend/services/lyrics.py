@@ -28,6 +28,7 @@ only caller is a single background worker, so the thread it blocks is free.
 import asyncio
 import json
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -106,6 +107,72 @@ def query_for(song: dict) -> str:
         if value:
             return value
     return ""
+
+
+# Mirrors lyrics-node/src/utils/text.ts, which is what labels the crawler's own
+# versions. Written out again here rather than asked for over HTTP because it is
+# a dozen characters of regex and the sidecar's answer would cost a round trip
+# for every paste.
+_SCRIPT_RANGES = (
+    ("latin", re.compile(r"[A-Za-z]")),
+    ("devanagari", re.compile(r"[\u0900-\u097f]")),
+    # Urdu, Arabic and Persian share this block.
+    ("arabic", re.compile(r"[\u0600-\u06ff\u0750-\u077f\ufb50-\ufdff\ufe70-\ufeff]")),
+)
+
+
+def script_of(text: str) -> str:
+    """Which script this is mostly written in, for naming a version someone
+    typed in themselves.
+
+    The floor is lower than the sidecar's twenty characters: that one judges a
+    whole crawled page, while this may be handed two lines off a lyrics site.
+    Below it the answer is "other", which the switcher shows as a plain label
+    rather than guessing wrong in a script the reader can't read.
+    """
+    sample = (text or "")[:4000]
+    counts = sorted(
+        ((script, len(pattern.findall(sample))) for script, pattern in _SCRIPT_RANGES),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )
+    top = counts[0]
+    return top[0] if top[1] >= 8 else "other"
+
+
+# How `meaning_version` names one of someone's own versions. Anything else —
+# None, or a value from before this existed — means the best the crawler found.
+MINE_PREFIX = "mine:"
+
+
+def mine_key(version_id: str) -> str:
+    return f"{MINE_PREFIX}{version_id}"
+
+
+def mine_of(row: dict, version: str | None) -> dict | None:
+    """The version a `meaning_version` points at, or None for anything else —
+    including an id whose words have since been deleted, which is why this
+    looks the entry up rather than trusting the pointer."""
+    if not version or not version.startswith(MINE_PREFIX):
+        return None
+    wanted = version[len(MINE_PREFIX) :]
+    for entry in row.get("mine") or []:
+        if entry.get("id") == wanted:
+            return entry
+    return None
+
+
+def names_of(row: dict) -> tuple[str, str]:
+    """What to tell the model this song is.
+
+    A name someone typed wins over the one the finder worked out: they only
+    typed it because the finder got it wrong or never got one at all, and a row
+    the crawler failed on has no `resolved` names to fall back to.
+    """
+    resolved = row.get("resolved") or {}
+    title = (row.get("manual_title") or resolved.get("title") or "").strip()
+    artist = (row.get("manual_artist") or resolved.get("artist") or "").strip()
+    return title, artist
 
 
 def _candidate(raw: dict, with_text: bool = False) -> dict:
@@ -328,6 +395,20 @@ async def explain_stored(row: dict) -> tuple[dict | None, str | None]:
     Never raises for a bad answer — it returns the reason instead, which the
     page shows beside the words it already has.
     """
+    title, artist = names_of(row)
+
+    mine = mine_of(row, row.get("meaning_version"))
+    if mine is not None:
+        # No transliteration guard on this branch. That one is there because
+        # *our* romanisation guesses the short vowels Urdu doesn't write — it
+        # has nothing to say about words somebody copied off a lyrics page
+        # themselves, and refusing to read those would be refusing the whole
+        # point of letting them add any.
+        text = (mine.get("text") or "").strip()
+        if not text:
+            return None, "There are no words on this one to explain yet."
+        return await asyncio.to_thread(_explain, title, artist, text)
+
     versions = _versions_of(row)
     if not versions:
         return None, "There are no words on this one to explain yet."
@@ -341,10 +422,4 @@ async def explain_stored(row: dict) -> tuple[dict | None, str | None]:
             "original doesn't write — too shaky to explain from."
         )
 
-    resolved = row.get("resolved") or {}
-    return await asyncio.to_thread(
-        _explain,
-        resolved.get("title") or "",
-        resolved.get("artist") or "",
-        explain_from["lyrics"],
-    )
+    return await asyncio.to_thread(_explain, title, artist, explain_from["lyrics"])

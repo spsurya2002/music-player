@@ -222,3 +222,10 @@ a.home-row:hover {
     flex: 1 1 100%;
   }
 }
+
+/* Geometry only: the img rule sets display:block, which would undo the
+   flex centring the note needs. */
+.home-row-art .thumb-empty {
+  width: 100%;
+  height: 100%;
+}

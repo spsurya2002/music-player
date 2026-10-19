@@ -6,11 +6,13 @@ import MobileTabs from "./components/MobileTabs";
 import PlayerBar from "./components/PlayerBar";
 import QueuePanel from "./components/QueuePanel";
 import YouTubePlayer from "./components/YouTubePlayer";
+import CoffeeFab from "./components/CoffeeFab";
 import { usePlayer } from "./context/PlayerContext";
 import { useAuth } from "./context/AuthContext";
 import SignInPrompt from "./components/SignInPrompt";
 import { PlusIcon, LibraryIcon, LyricsIcon, PlaylistIcon, InboxIcon, UserIcon, GaugeIcon, ShieldIcon } from "./components/icons";
 import useGlobalShortcuts from "./hooks/useGlobalShortcuts";
+import useAbout from "./hooks/useAbout";
 import SearchView from "./views/SearchView";
 import AllSongsView from "./views/AllSongsView";
 import LyricsView from "./views/LyricsView";
@@ -29,10 +31,11 @@ import ShareTargetView from "./views/ShareTargetView";
 import AccountView from "./views/AccountView";
 import PlanView from "./views/PlanView";
 import AdminView from "./views/AdminView";
+import AboutView from "./views/AboutView";
 import "./Shell.css";
 
-// Sidebar, PlayerBar, QueuePanel and the YouTube modal all live here, as
-// siblings of <Routes> rather than inside it — navigating between views only
+// Sidebar, PlayerBar, QueuePanel, the YouTube modal and the floating support
+// link all live here, as siblings of <Routes> rather than inside it — navigating between views only
 // ever swaps the <Routes> subtree, so the audio element (owned by
 // PlayerProvider, above this whole component) and the bar that controls it
 // never unmount.
@@ -41,6 +44,10 @@ const RAIL_KEY = "rail-mini";
 export default function Shell() {
   const { queueOpen } = usePlayer();
   useGlobalShortcuts();
+  // Read once, here, and handed to the three navigations below. They each
+  // need the same two flags and the same label, and the hook caches the
+  // request anyway — but passing it keeps the question in one place.
+  const about = useAbout();
 
   // Collapsed or not, remembered per browser. Layout state, not app state —
   // nothing on the server cares, and it should survive a reload the way the
@@ -67,9 +74,9 @@ export default function Shell() {
 
   return (
     <div className={"shell" + (mini ? " rail-mini" : "")}>
-      <TopBar onToggleRail={toggleRail} />
-      <Sidebar mini={mini} />
-      <MobileTabs />
+      <TopBar onToggleRail={toggleRail} about={about} />
+      <Sidebar mini={mini} about={about} />
+      <MobileTabs about={about} />
       <main className="shell-content">
         <Routes>
           {/* Home is the shared feed, and it is the one part of the app with no
@@ -78,6 +85,13 @@ export default function Shell() {
               page that opened on an empty form asked for work before it had
               shown you anything worth doing. */}
           <Route path="/" element={<SharedView />} />
+          {/* The second ungated route, for the same reason as the first: it
+              is what a résumé and a LinkedIn profile link to, so almost
+              everyone who opens it has no account and wants none. The page
+              answers Not found by itself when the admin has switched it off,
+              rather than the route disappearing — a route that comes and goes
+              with a fetch would render Not found on every cold load. */}
+          <Route path="/about" element={<AboutView />} />
           <Route
             path="/add/reel"
             element={
@@ -242,6 +256,7 @@ export default function Shell() {
         </Routes>
       </main>
       {queueOpen && <QueuePanel />}
+      <CoffeeFab />
       <PlayerBar />
       <YouTubePlayer />
     </div>

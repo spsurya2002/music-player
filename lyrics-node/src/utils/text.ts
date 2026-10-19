@@ -100,6 +100,42 @@ function withinOneEdit(a: string, b: string): boolean {
 }
 
 /**
+ * Consonants only, folded to the sounds romanisation keeps confusing. A word
+ * written down by ear survives as its consonants: "qareeb", "qariib" and
+ * "karib" are three people spelling one word, and all three leave "krb".
+ * Vowels are what change, so they are exactly what we drop.
+ */
+export function consonantSkeleton(word: string): string {
+  return normalize(word)
+    .replace(/[^a-z]/g, '')
+    // Aspirates are optional in transliteration: "shaam"/"saam", "kh"/"k".
+    // An h *after* a consonant marks one; an h after a vowel is its own sound.
+    .replace(/([bcdgjkpst])h/g, '$1')
+    .replace(/ph|f/g, 'p')
+    .replace(/q/g, 'k')
+    .replace(/w/g, 'v')
+    .replace(/z/g, 'j')
+    .replace(/x/g, 'ks')
+    .replace(/[aeiouy]/g, '')
+    .replace(/(.)\1+/g, '$1');
+}
+
+/**
+ * Two spellings of the same word? Skeletons shorter than three consonants say
+ * too little to be evidence — "kya" and "koi" both reduce to "k".
+ */
+function sameSkeleton(a: string, b: string): boolean {
+  if (a.length < 4 || b.length < 4) return false;
+  // Dropping every vowel is a blunt instrument: it makes "pukaro" and
+  // "pukariye" the same word, and they are not. Two spellings of one word are
+  // about as long as each other, so a word that is meaningfully longer than
+  // the one it supposedly matches is a different word wearing the same bones.
+  if (Math.abs(a.length - b.length) > 1) return false;
+  const skeleton = consonantSkeleton(a);
+  return skeleton.length >= 3 && skeleton === consonantSkeleton(b);
+}
+
+/**
  * Like `tokenCoverage`, but only the words that identify the song count, and a
  * word spelled one letter differently still counts. Transliterations are never
  * spelled the same way twice — "tajdar" and "tajadar" are the same word — while
@@ -117,7 +153,8 @@ export function fuzzyCoverage(needle: string, haystack: string): number {
       (candidate) =>
         candidate === token ||
         (token.length >= 4 && candidate.length >= 4 && withinOneEdit(token, candidate)) ||
-        (token.length >= 5 && candidate.length >= 5 && (candidate.startsWith(token) || token.startsWith(candidate))),
+        (token.length >= 5 && candidate.length >= 5 && (candidate.startsWith(token) || token.startsWith(candidate))) ||
+        sameSkeleton(token, candidate),
     );
     if (matched) hits += 1;
   }
@@ -147,6 +184,19 @@ export function tidyLyrics(raw: string): string {
     .map((line) => line.replace(/[ \t]+/g, ' ').trim())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * A reel carries the uploader's tags into the song title — "…Nusrat Fatah Ali
+ * Khan#AliReact000". Handed that, a search engine gives up on the phrase and
+ * answers the one word it recognises, so the tags come off before anyone sees
+ * them. They are glued straight onto the last word as often as not.
+ */
+export function stripSocialNoise(text: string): string {
+  return text
+    .replace(/[#@][\w.\u0900-\u097F]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -200,7 +250,7 @@ function splitByCredit(title: string): { title: string; artist?: string } {
  * "Artist - Song (Official Video) [HD]" -> { artist: "Artist", title: "Song" }
  */
 export function parseVideoTitle(videoTitle: string, channel?: string): { title: string; artist?: string } {
-  let text = videoTitle;
+  let text = stripSocialNoise(videoTitle);
 
   // Drop bracketed junk, but keep brackets that carry a "feat." credit.
   text = text.replace(/[\[(]([^\])]*)[\])]/g, (match, inner: string) =>
@@ -274,7 +324,7 @@ export function parseVideoTitle(videoTitle: string, channel?: string): { title: 
  * Falls back to treating the whole string as the title.
  */
 export function parseTextQuery(raw: string): { title: string; artist?: string } {
-  const text = raw.replace(/\blyrics\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  const text = stripSocialNoise(raw.replace(/\blyrics\b/gi, ' '));
 
   // "hello by adele" names a performer; "Stand by Me" and "Stand by Your Man"
   // are just songs, so the tail has to be a plausible name.

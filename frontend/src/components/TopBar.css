@@ -95,6 +95,9 @@
   background: var(--hover);
 }
 
+/* The class as well as the element: when the thumbnail fails to load, Thumb
+   renders a span in its place, and an unsized one would collapse and drag the
+   result's text leftwards. */
 .topbar-results img {
   width: 36px;
   height: 36px;
@@ -168,9 +171,12 @@
 }
 
 /* Below this the brand wordmark and a usable search field cannot both fit. The
-   search is the one you reach for; the brand is also the Home tab. */
+   search is the one you reach for; the brand is also the Home tab.
+   Signed out there is no search field to protect, and dropping the wordmark
+   anyway left the bar holding a single button with the app's name nowhere on
+   the page — so the trade only applies when there is something to trade for. */
 @media (max-width: 420px) {
-  .topbar-brand {
+  .topbar:not(.topbar-anon) .topbar-brand {
     display: none;
   }
 }
@@ -211,4 +217,12 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+}
+
+/* Geometry only — see span.thumb-empty. */
+.topbar-results .thumb-empty {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  flex: none;
 }

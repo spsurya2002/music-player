@@ -79,6 +79,27 @@ export const MuteIcon = (p) => (
   </Svg>
 );
 
+// Artwork that isn't there. Ring noteheads, the same shape the brand mark uses,
+// so an empty cover reads as this app rather than as something that failed.
+export const MusicIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="7" cy="17.5" r="3.5" />
+    <circle cx="17" cy="15.5" r="3.5" />
+    <path d="M10.5 17.5V6l10-2.5V15.5" />
+  </Svg>
+);
+
+// Two paths crossing, with an arrowhead on each — the loop arrows uncrossed.
+export const ShuffleIcon = (p) => (
+  <Svg {...p}>
+    <path d="M16 3h5v5" />
+    <path d="M4 20L21 3" />
+    <path d="M21 16v5h-5" />
+    <path d="M15 15l6 6" />
+    <path d="M4 4l5 5" />
+  </Svg>
+);
+
 export const LoopOffIcon = (p) => (
   <Svg {...p}>
     <path d="M17 2l4 4-4 4" />
@@ -347,5 +368,76 @@ export const Forward3Icon = (p) => (
   <Svg {...p}>
     <path d="M20.5 9.5A9 9 0 1 0 21 13" />
     <path d="M21 4.5v5h-5" />
+  </Svg>
+);
+
+// The two halves of one toggle: brackets pointing out of the frame, then into
+// it. Used by the lyrics book's full view, where the same button does both.
+export const ExpandIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 9V4h5" />
+    <path d="M20 9V4h-5" />
+    <path d="M4 15v5h5" />
+    <path d="M20 15v5h-5" />
+  </Svg>
+);
+
+export const ShrinkIcon = (p) => (
+  <Svg {...p}>
+    <path d="M9 4v5H4" />
+    <path d="M15 4v5h5" />
+    <path d="M9 20v-5H4" />
+    <path d="M15 20v-5h5" />
+  </Svg>
+);
+
+// A cup with steam. The one icon in the app that stands for something outside
+// it — the support link at the foot of the rail.
+export const CoffeeIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 9h12v6a4 4 0 01-4 4H8a4 4 0 01-4-4V9z" />
+    <path d="M16 11h2a2.5 2.5 0 010 5h-2" />
+    <path d="M8 3v2.5M12 3v2.5" />
+  </Svg>
+);
+
+// The contact strip on the About page, plus the rail row that leads to it.
+// GitHub and LinkedIn are brand marks, so they are solid paths rather than
+// strokes — the same opt-out StarIcon uses, and the only way those two read as
+// themselves at 18px.
+export const GithubIcon = (p) => (
+  <Svg {...p} fill="currentColor" stroke="none">
+    <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.555-1.11-4.555-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85l-.01 2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z" />
+  </Svg>
+);
+
+export const LinkedinIcon = (p) => (
+  <Svg {...p} fill="currentColor" stroke="none">
+    <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.5h4v11H3v-11zm6.5 0h3.84v1.5h.05c.54-.96 1.85-1.98 3.8-1.98 4.07 0 4.81 2.5 4.81 5.76v5.72h-4v-5.07c0-1.21-.02-2.77-1.76-2.77-1.76 0-2.03 1.32-2.03 2.68v5.16h-4v-11z" />
+  </Svg>
+);
+
+export const MailIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3.5 7 8.5 6 8.5-6" />
+  </Svg>
+);
+
+export const DocIcon = (p) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" />
+    <path d="M14 3v4h4" />
+    <path d="M9 12h6M9 16h4" />
+  </Svg>
+);
+
+// The rail row. A sleeve with a disc half out of it — liner notes are the
+// booklet that comes with the record, which is what the page is.
+export const SleeveIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="14" height="16" rx="1.5" />
+    <circle cx="16" cy="14" r="5" />
+    <circle cx="16" cy="14" r="1.2" />
   </Svg>
 );

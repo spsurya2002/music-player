@@ -3,6 +3,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { CloseIcon, GripIcon, PlayIcon, PauseIcon } from "./icons";
 import { fmtDur, songTitle } from "../utils/format";
 import "./QueuePanel.css";
+import Thumb from "./Thumb";
 
 export default function QueuePanel() {
   const { queue, currentIndex, playing, jumpTo, reorderQueue, toggleQueue, removeFromQueue } = usePlayer();
@@ -55,7 +56,7 @@ export default function QueuePanel() {
               <GripIcon size={15} />
             </span>
             <button type="button" className="queue-item-main" onClick={() => jumpTo(i)}>
-              <img src={song.thumbnail || undefined} alt="" />
+              <Thumb src={song.thumbnail} iconSize={16} />
               <span className="queue-item-text">
                 <span className="queue-item-title">{songTitle(song)}</span>
                 <span className="queue-item-artist">{song.artist || song.uploader}</span>

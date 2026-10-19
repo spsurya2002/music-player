@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { usePlayer } from "../context/PlayerContext";
 import { PlayIcon, PauseIcon, PrevIcon, NextIcon, VolumeIcon, MuteIcon, LoopOffIcon, LoopOneIcon, QueueIcon, Back3Icon, Forward3Icon } from "./icons";
 import { fmtDur, songTitle } from "../utils/format";
 import "./PlayerBar.css";
+import Thumb from "./Thumb";
 
 // How far the two nudge buttons move. Three, because that is the length of a
 // line you missed — the arrow keys still step 5 (useGlobalShortcuts.js).
@@ -30,6 +32,8 @@ export default function PlayerBar() {
     queueOpen,
     playerError,
   } = usePlayer();
+  // Only to word the empty state: signed out there is no library to point at.
+  const { user } = useAuth();
 
   const seekRef = useRef(null);
   // Where the pointer is while dragging, in seconds, or null when it isn't.
@@ -80,9 +84,16 @@ export default function PlayerBar() {
   }, [dragging, timeAt, seek]);
 
   if (!currentSong) {
+    // A visitor has no library to pick from, and telling them to use one is the
+    // app describing a room they can't see. What they can play is the shared
+    // feed, which is the page they are already on.
     return (
       <div className="player-bar player-bar-empty">
-        <span>Nothing playing — pick a song from your library.</span>
+        <span>
+          {user
+            ? "Nothing playing — pick a song from your library."
+            : "Nothing playing — press play on anything in the shared playlists."}
+        </span>
       </div>
     );
   }
@@ -115,7 +126,7 @@ export default function PlayerBar() {
     <div className="player-bar">
       <div className="player-left">
         <Link to={`/songs/${currentSong.id}`} className="player-art-link">
-          <img className="player-art" src={currentSong.thumbnail || undefined} alt="" />
+          <Thumb className="player-art" src={currentSong.thumbnail} iconSize={22} />
         </Link>
         <div className="player-meta">
           <Link to={`/songs/${currentSong.id}`} className="player-title">

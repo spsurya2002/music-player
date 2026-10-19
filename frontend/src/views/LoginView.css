@@ -82,11 +82,18 @@
 /* A way out. Signing in is a choice here, not a toll gate, so the screen has to
    let someone go back to the page that offered it. */
 .login-back {
-  margin: 16px 0 0;
+  /* 12 rather than 16: the link below now carries 4px of its own padding, so
+     the gap you see is unchanged. */
+  margin: 12px 0 0;
   font-size: 13px;
 }
 
+/* Inline-block with padding because the bare link measured 95x18, under the
+   24x24 floor in WCAG 2.2 AA 2.5.8 (target size). The underline still sits on
+   the words, not the padding. */
 .login-back a {
+  display: inline-block;
+  padding: 4px 2px;
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 2px;

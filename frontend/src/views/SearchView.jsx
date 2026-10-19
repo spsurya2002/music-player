@@ -8,6 +8,7 @@ import AddTabs from "../components/AddTabs";
 import { emitLimitsChanged } from "../utils/bus";
 import { fmtDur, fmtSize } from "../utils/format";
 import "./views.css";
+import Thumb from "../components/Thumb";
 
 const INITIAL_MATCH = null; // { identified, song, results } | { identified: false, reason }
 
@@ -117,6 +118,7 @@ export default function SearchView() {
           <input
             type="url"
             placeholder="https://www.instagram.com/reel/..."
+            aria-label="Instagram reel link"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             autoComplete="off"
@@ -142,7 +144,7 @@ export default function SearchView() {
         {extracted && (
           <div className="search-result">
             <div className="search-result-meta">
-              {extracted.thumbnail && <img className="search-result-art" src={extracted.thumbnail} alt="" />}
+              <Thumb className="search-result-art" src={extracted.thumbnail} iconSize={24} />
               <div>
                 <div className="search-result-title">{extracted.track || extracted.title || extracted.filename}</div>
                 <div className="search-result-by">
@@ -231,6 +233,7 @@ export default function SearchView() {
                 <input
                   type="text"
                   placeholder="Search by song name or a line you caught…"
+                  aria-label="Search by song name or a line you caught"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   autoComplete="off"

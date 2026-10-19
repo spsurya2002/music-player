@@ -142,6 +142,20 @@ def limit_request_to_dict(doc: dict) -> dict:
     }
 
 
+def _my_lyrics_to_dict(entry: dict) -> dict:
+    """One version somebody added themselves. `label` may be empty, which means
+    "name it after its script" — the page holds that map, next to the one it
+    already names the crawler's versions with."""
+    return {
+        "id": entry.get("id"),
+        "label": entry.get("label") or "",
+        "text": entry.get("text") or "",
+        "script": entry.get("script") or "other",
+        "created_at": iso(entry.get("created_at")),
+        "updated_at": iso(entry.get("updated_at")),
+    }
+
+
 def lyrics_to_dict(doc: dict) -> dict:
     """One song's lyrics row: the job and its result in the same shape.
 
@@ -166,6 +180,10 @@ def lyrics_to_dict(doc: dict) -> dict:
         "meaning_state": doc.get("meaning_state"),
         "meaning": doc.get("meaning"),
         "meaning_note": doc.get("meaning_note"),
+        # Which version the one reading was made from: "mine:<id>", or null for
+        # the best the crawler found. Null is also what every row written
+        # before versions could be yours carries, and means the same thing.
+        "meaning_version": doc.get("meaning_version"),
         # Where the lookup came from, and what the finder decided the query
         # really was — for a pasted link that is the only place the real artist
         # and title exist, so the page shows it instead of the raw URL.
@@ -175,6 +193,14 @@ def lyrics_to_dict(doc: dict) -> dict:
         # and a missing field means kept.
         "kept": doc.get("kept") is not False,
         "resolved": doc.get("resolved"),
+        # Words someone typed in themselves, newest last — the answer when the
+        # crawler found none or found the wrong ones. Each is a version in the
+        # same switcher the crawler's own versions sit in.
+        "mine": [_my_lyrics_to_dict(v) for v in (doc.get("mine") or [])],
+        # What they called it. A lookup that found nothing has no `resolved`,
+        # so without these its only title is the raw URL that was pasted.
+        "manual_title": doc.get("manual_title") or "",
+        "manual_artist": doc.get("manual_artist") or "",
         "video": doc.get("video"),
         "error": doc.get("error"),
         "created_at": iso(doc.get("created_at")),
@@ -212,4 +238,80 @@ def lyrics_set_to_dict(doc: dict, rows_for_derived: list[dict] | None = None) ->
         "cover": cover,
         "created_at": iso(doc.get("created_at")),
         "updated_at": iso(doc.get("updated_at")),
+    }
+
+
+def about_to_dict(doc: dict | None) -> dict:
+    """The About page's content, as /about and the admin editor both read it.
+
+    `_id` is the literal string "about", not an ObjectId — there is exactly one
+    of these — so unlike everywhere else in this file there is no id to hand
+    out, and it is dropped rather than renamed.
+
+    Everything is defaulted, so a document written by an older version of the
+    app (or half-written by hand in mongosh) still renders a page instead of
+    throwing on a missing key.
+    """
+    doc = doc or {}
+    return {
+        "enabled": bool(doc.get("enabled", False)),
+        "in_nav": bool(doc.get("in_nav", False)),
+        "nav_label": doc.get("nav_label") or "",
+        "nav_mini_label": doc.get("nav_mini_label") or "",
+        "title": doc.get("title") or "",
+        "subtitle": doc.get("subtitle") or "",
+        "sections": [
+            {
+                "id": s.get("id") or "",
+                "heading": s.get("heading") or "",
+                "body": s.get("body") or "",
+            }
+            for s in (doc.get("sections") or [])
+        ],
+        # A link with nothing behind it is not rendered, and this is the only
+        # place that rule lives — the page just draws what it is given.
+        "links": [
+            {
+                "kind": link.get("kind") or "site",
+                "label": link.get("label") or "",
+                "value": link.get("value") or "",
+            }
+            for link in (doc.get("links") or [])
+            if (link.get("value") or "").strip()
+        ],
+        "contact_enabled": bool(doc.get("contact_enabled", False)),
+        "contact_heading": doc.get("contact_heading") or "",
+        "contact_hint": doc.get("contact_hint") or "",
+        "contact_sent": doc.get("contact_sent") or "",
+        "updated_at": iso(doc.get("updated_at")),
+    }
+
+
+def about_admin_to_dict(doc: dict | None) -> dict:
+    """The same document for the editor, which needs the empty links too — they
+    are the rows you type a URL into, and dropping them would mean the Résumé
+    field disappeared the moment it was cleared."""
+    out = about_to_dict(doc)
+    out["links"] = [
+        {
+            "kind": link.get("kind") or "site",
+            "label": link.get("label") or "",
+            "value": link.get("value") or "",
+        }
+        for link in ((doc or {}).get("links") or [])
+    ]
+    return out
+
+
+def contact_to_dict(doc: dict) -> dict:
+    """One message from /about. The sender typed their own name and address —
+    they may have no account here at all — so those are carried on the row
+    itself rather than looked up like feedback's author is."""
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name") or "",
+        "email": doc.get("email") or "",
+        "message": doc.get("message") or "",
+        "signed_in": bool(doc.get("user_id")),
+        "created_at": iso(doc.get("created_at")),
     }

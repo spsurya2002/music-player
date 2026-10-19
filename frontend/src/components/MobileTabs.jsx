@@ -10,6 +10,7 @@ import {
   LyricsIcon,
   PlaylistIcon,
   PlusIcon,
+  SleeveIcon,
   UserIcon,
 } from "./icons";
 import "./MobileTabs.css";
@@ -33,7 +34,7 @@ import "./MobileTabs.css";
  * Playlists, Lyrics and Imports had no route on a phone at all — you could see
  * them on a desktop and not reach them here.
  */
-export default function MobileTabs() {
+export default function MobileTabs({ about }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const addingMusic = pathname.startsWith("/add");
@@ -72,7 +73,7 @@ export default function MobileTabs() {
         <span>You</span>
       </button>
 
-      {sheet && <YouSheet user={user} onClose={() => setSheet(false)} />}
+      {sheet && <YouSheet user={user} about={about} onClose={() => setSheet(false)} />}
     </nav>
   );
 }
@@ -81,8 +82,11 @@ export default function MobileTabs() {
  * The rail's "You" section, as a sheet over the tabs. All songs is left out —
  * it has a tab of its own, and listing it twice is the thing the rail already
  * learned not to do.
+ *
+ * About is the exception to the name: it belongs to nobody, and it is listed
+ * for signed-out visitors too, because they are most of who reads it.
  */
-function YouSheet({ user, onClose }) {
+function YouSheet({ user, about, onClose }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose();
@@ -129,6 +133,20 @@ function YouSheet({ user, onClose }) {
           <Link to="/login" className="you-sheet-row" onClick={onClose} role="menuitem">
             <UserIcon size={19} />
             <span>Sign in</span>
+            <ChevronIcon size={15} />
+          </Link>
+        )}
+
+        {/* Outside the branch above, deliberately: it is the one row here that
+            doesn't belong to an account. Most of the people who open it have
+            no account and want none — the page is what a résumé links to — so
+            putting it with the signed-in rows would hide it from exactly the
+            readers it is for. The rail carries it on a desktop; under 760px
+            there is no rail, and this sheet is the only way to it. */}
+        {about?.enabled && about?.in_nav && (
+          <Link to="/about" className="you-sheet-row" onClick={onClose} role="menuitem">
+            <SleeveIcon size={19} />
+            <span>{about.nav_label}</span>
             <ChevronIcon size={15} />
           </Link>
         )}

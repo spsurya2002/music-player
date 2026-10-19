@@ -1,6 +1,6 @@
 """Your limits, and asking for more: GET /api/quota, GET|POST /api/requests,
-POST /api/requests/{id}/notes, POST /api/requests/seen,
-GET /api/requests/summary.
+DELETE /api/requests/{id}, POST /api/requests/{id}/notes,
+POST /api/requests/seen, GET /api/requests/summary.
 
 There is no payment anywhere in this app. The two paid features — reel
 extraction and file lookup — come with a free allowance (backend/services/quota.py),
@@ -126,6 +126,37 @@ async def ask_about(request_id: str, body: RequestNoteCreate, user: CurrentUser)
     if not updated:
         raise errors.AppError(errors.NOTE_THREAD_FULL, 409)
     return {"request": limit_request_to_dict(updated)}
+
+
+@router.delete("/requests/{request_id}")
+async def withdraw(request_id: str, user: CurrentUser):
+    """Take back a request that nobody has answered yet.
+
+    One pending request per person is a unique index, so an ill-judged or
+    mistyped one used to block the only way of asking until an admin got to it —
+    and the only thing the sender could do was add a note saying "ignore this",
+    which still left the row in the queue. Deleting rather than marking it
+    withdrawn is deliberate: the index is what has to be freed, and a request
+    nobody read is not history worth keeping.
+
+    Only while it is pending. Once answered the row is the record of a decision,
+    and the sender does not get to remove the admin's half of it.
+    """
+    oid = to_object_id(request_id)
+    # Scoped to the pair and to pending in one go, so a second tab pressing
+    # Withdraw after an admin answered deletes nothing and is told why.
+    row = await db.requests_col.find_one({"_id": oid, "user_id": user.id}) if oid else None
+    if not row:
+        raise errors.AppError(errors.MISSING_REQUEST, 404)
+    if row.get("state") != PENDING:
+        raise errors.AppError(errors.WITHDRAW_CLOSED_REQUEST, 409)
+
+    result = await db.requests_col.delete_one(
+        {"_id": oid, "user_id": user.id, "state": PENDING}
+    )
+    if not result.deleted_count:
+        raise errors.AppError(errors.WITHDRAW_CLOSED_REQUEST, 409)
+    return {"withdrawn": True}
 
 
 @router.post("/requests/seen")

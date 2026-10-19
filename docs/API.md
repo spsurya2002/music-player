@@ -16,7 +16,8 @@ serves the built frontend, so the app is one origin and one command.
 - Errors: non-2xx with `{"error": "a plain sentence"}`. The frontend renders `error`
   verbatim, so it must read as English, not as a code. Check `r.ok` before using a body.
   A few failures carry one extra field beside `error` for the client to act on — so far
-  only a used-up limit: `402 {"error": "...", "quota": "reel" | "file"}` (section 3b).
+  only a used-up limit: `402 {"error": "...", "quota": "reel" | "file" | "lyrics" | "meaning"}`
+  (section 3b).
 - `duration` is seconds (int), `size` is bytes (int).
 - **Every endpoint except `/api/auth/config`, `/api/auth/me` and `/api/health` requires a
   signed-in session** and answers `401 {"error": "Sign in to continue."}` without one. See
@@ -453,6 +454,19 @@ turn personal use into republishing.
   },
   "meaning_state": "done",
   "meaning_note": null,
+  "meaning_version": null,
+  "mine": [
+    {
+      "id": "b6a5ee9575514e5aa4f810c33d04f100",
+      "label": "",
+      "text": "رنجش ہی سہی...",
+      "script": "arabic",
+      "created_at": "2026-10-04T18:02:00Z",
+      "updated_at": "2026-10-04T18:02:00Z"
+    }
+  ],
+  "manual_title": "",
+  "manual_artist": "",
   "kept": true,
   "error": null,
   "created_at": "2026-10-03T09:14:00Z",
@@ -468,6 +482,8 @@ turn personal use into republishing.
 | `running` | being looked up now |
 | `done` | the words are in `text` |
 | `not_found` | we looked and found nothing we trust. **An answer, not a fault** — see below |
+| `stopped` | you called it off; `error` says so. A finished lookup, not a fault |
+| `manual` | nobody crawled — the row exists to hold words you added yourself |
 | `failed` | something broke; `error` says what |
 | `failed` *(meaning)* | the reading broke; `meaning_note` says why |
 | `limited` *(meaning only)* | the lyric limit ran out before this row's turn |
@@ -496,6 +512,33 @@ are the point; an explanation we couldn't get is a note beside them. Then
 one pass, or the only version we have is our own romanisation, which guesses the
 short vowels the original doesn't write and is too shaky to read meaning from.
 
+**The words can be yours.** `mine[]` is every version somebody typed or pasted
+in themselves, oldest first. It is the answer to `not_found`: the crawler refuses
+to guess, but the song is usually on the open web in ten seconds, so the page
+offers somewhere to put it rather than a better apology. Adding one costs
+nothing — no crawl, no model call — and keeps the row.
+
+A version carries its own `script` (`latin` / `devanagari` / `arabic` / `other`,
+detected from the text) and an optional `label`. An empty `label` means "name it
+after its script", which is how it ends up in the same switcher as the crawler's
+own per-script candidates rather than beside it.
+
+`mine[]`, `manual_title` and `manual_artist` **survive a re-crawl**. Everything
+else on the row is cleared when it goes back on the queue; these are not an
+attempt at anything, they are what somebody typed.
+
+**A row holds one reading, and `meaning_version` says which words it is about** —
+`"mine:<id>"`, or `null` for the best the crawler found. Shown beside any other
+version it would pair every line with somebody else's words, so the page renders
+the reading only against its own version and offers to read the other instead.
+`null` is also what every row written before this existed carries, and means the
+same thing.
+
+`manual_title` / `manual_artist` are what you called the lookup. A crawl that
+found nothing resolved no names, so without them its only title is the raw thing
+that was pasted — a YouTube URL, usually. They also win over `resolved` when the
+reading is asked for.
+
 `terms[]` is two shapes in one list. Words the Rekhta dictionary knew carry
 `roman`, `origin`, `part_of_speech` and `url`; words only the model glossed carry
 just `word` and `senses`. Both render the same way.
@@ -508,15 +551,57 @@ This is also the poll target while a lookup runs.
 
 ### `POST /api/lyrics/{row_id}/meaning`
 
+Optional body `{"version": "mine:<id>"}` — which words to read. Omitted (or
+`null`) means the best the crawler found, which is what every call meant before
+versions could be yours.
+
 `202` with `{"lyrics": Lyrics}` — the row with `meaning_state: "queued"`, ready
 to poll. The paid step: one `lyrics` use (section 3b), held when the worker
 starts and **kept only if a reading came back**. A missing `GEMINI_API_KEY`,
 lyrics too long, or a model that refused all end as `meaning_state: "failed"`
 with the reason in `meaning_note`, and refund the hold.
 
-`400` if the row has no words yet: `Find the words first — there's nothing to
-read yet.` Asking again for a row that already has a reading returns it without
-spending a second use.
+`400` if the row has no words yet: `There are no words on this one yet — find
+them, or add your own.` `404` if the named version has since been deleted.
+
+Asking again for **the same version** returns the reading without spending a
+second use. Naming a **different** one is a second question: it clears the
+reading, queues a new one and costs another use. The page confirms first.
+
+### `POST /api/lyrics/{row_id}/mine`
+
+`201` with `{"lyrics": Lyrics}`. Body `{"text": "...", "label": "..."}` — `label`
+optional. Adds a version of your own and **keeps the row**: a lookup you have
+bothered to type the words into is one you meant to keep, and otherwise your own
+lyrics would live somewhere `GET /api/lyrics` never lists.
+
+Free. `400` on empty text, `413` past 12,000 characters (what the sidecar will
+read in one pass), `409` past 10 versions on one row.
+
+### `PATCH /api/lyrics/{row_id}/mine/{version_id}`
+
+`{"lyrics": Lyrics}`. Body `{"text": "...", "label": "..."}`, either field
+omitted to leave it. Changing the **text** of the version a reading was made from
+drops that reading — it explains the words line by line and would otherwise be a
+commentary on a text that no longer exists. A label-only edit keeps it. `404` if
+that version is gone.
+
+### `DELETE /api/lyrics/{row_id}/mine/{version_id}`
+
+`{"lyrics": Lyrics}`. Deleting the version a reading belongs to takes the reading
+with it.
+
+### `PATCH /api/lyrics/{row_id}`
+
+`{"lyrics": Lyrics}`. Body `{"title": "...", "artist": "..."}`, either omitted to
+leave it. What to call a lookup the finder could not name.
+
+### `POST /api/songs/{song_id}/lyrics/mine`
+
+`201` with `{"lyrics": Lyrics}`. Same body as above, for a song in the library.
+The row may not exist yet — this is the path for a song nobody has looked up — so
+one is created in `state: "manual"` on the way through. A song whose lookup has
+already run lands on that row instead; nothing is reset.
 
 ### `GET /api/lyrics`
 
@@ -534,6 +619,35 @@ One saved lookup, and removing one. `GET` finds a row whether or not it is
 `kept` — the page that asks "keep this?" has to be able to show it. Deleting is
 how you stop paying rent on a bad result; looking it up again costs another use
 only for the reading.
+
+### `POST /api/lyrics/{row_id}/stop`
+
+`{"lyrics": Lyrics}` — the row, stopped. Stops whichever half is running: the
+words if `state` is `queued`/`running`, otherwise the reading if
+`meaning_state` is. `404` for a row that isn't yours.
+
+**What "stop" promises, and what it doesn't.** Queued work is genuinely called
+off — the worker only ever claims rows in `queued`, so moving one out means it
+never starts. Work already out at the sidecar is *not* interrupted: the crawl
+goes over `asyncio.to_thread`, a thread cannot be cancelled, and cutting the
+worker loose would only have it start a second crawl alongside the first — which
+is how the sidecar, whose politeness state is in process memory, gets itself
+blocked at the search engines. So that crawl runs to the end and its answer is
+thrown away.
+
+Everything the caller can see does stop: the row leaves `running` immediately,
+polling settles, and the page is usable again.
+
+The discard is one conditional write — the worker only writes to a row still in
+`running` — so Stop and a lookup landing can arrive in either order and exactly
+one of them wins. Stopping a lookup that has just finished is therefore not an
+error: the row comes back `done`, with its words, which is the truth.
+
+A reading stopped before it landed **costs nothing**: the use is held while the
+worker runs it and is only settled once the result is written, so a discarded
+result releases the hold instead.
+
+Nothing to stop is a no-op, not an error. The row comes back as it is.
 
 ### `POST /api/lyrics/{row_id}/keep`
 
@@ -602,6 +716,89 @@ most 2000. The floor is checked after trimming, in the router rather than as a p
 
 Signed in, because the admin reading it needs to know who to go back to, and an unsigned
 box on the open internet is a spam funnel rather than a feedback form.
+
+---
+
+## 2e. The About page
+
+Who built the app, and how to reach them. **Unauthenticated**, and that is the point:
+this is the page a résumé and a LinkedIn profile link to, so almost everybody who opens
+it has no account and wants none. It and section 3a are the only routes in the app that
+answer with no session at all.
+
+Every word of it is **one document in Mongo** (`settings`, `_id: "about"`), written from
+section 3c. Nothing on the page is in the code — `backend/services/about_defaults.py`
+seeds the document on first boot and backs the reset button, and is never read again.
+
+**About** object:
+```json
+{"enabled": true, "in_nav": true,
+ "nav_label": "About Developer", "nav_mini_label": "Notes",
+ "title": "Liner notes", "subtitle": "...",
+ "sections": [{"id": "built", "heading": "...", "body": "para\n\npara"}],
+ "links": [{"kind": "email|github|linkedin|resume|site", "label": "Email", "value": "..."}],
+ "contact_enabled": true, "contact_heading": "...", "contact_hint": "...",
+ "contact_sent": "...", "updated_at": "2026-10-05T09:12:00Z"}
+```
+
+A section `body` is **plain text**: a blank line starts a paragraph and that is the whole
+of the formatting. No Markdown and no HTML, so nothing an admin pastes can break the
+design system.
+
+### `GET /api/about`
+
+`{"about": About}`.
+
+**A link whose `value` is empty is left out of this response entirely** — that is how the
+résumé button stays off the page until there is a URL behind it, with no second flag per
+link. The admin shape (section 3c) keeps them, because they are the rows you type into.
+
+When `enabled` is false the body stops at the flags:
+```json
+{"about": {"enabled": false, "in_nav": false}}
+```
+A page the admin has taken down should not still be shipping its copy to anyone who asks,
+and the two flags are all the rail needs to leave the entry out.
+
+---
+
+## 2f. Writing to the developer
+
+### `POST /api/contact`
+
+Body `{"name": "...", "email": "...", "message": "...", "website": ""}`.
+`201` with `{"sent": true, "message": ContactMessage}`.
+
+**The one route in the app that stores something for a caller with no session.** Section
+2d refuses to for good reason — an unsigned box on the open internet is a spam funnel —
+and this one exists anyway because the people it is for will never sign in to a stranger's
+music app to say hello. So it carries its own defences in place of one:
+
+- **3 an hour and 10 a day per sender**, counted in process memory and keyed on
+  `CF-Connecting-IP`, then `X-Forwarded-For`, then the socket. (The app is served through
+  a Cloudflare tunnel, so the socket is the tunnel for everybody and would make the
+  per-sender limit a global one.) Over either: `429`.
+- **200 a day across everyone**, because an IP-keyed limit is worth what a botnet's
+  address pool costs. Over it: `429 The message box has had a busy day — try again
+  tomorrow, or email instead.`
+- **`website` is a honeypot.** It is off-screen, untabbable and `aria-hidden`, so nobody
+  fills it in on purpose. A filled one gets `{"sent": true}` and **is not stored** — a bot
+  told which field caught it just stops filling that one in.
+- `name` and a plausible `email` are required; `message` is trimmed and must then be
+  **at least 10 characters**, at most 2000.
+
+`user_id` is recorded when a session happens to be there — knowing a sender already uses
+the app is worth something to whoever reads it — but it is never what lets them send.
+
+**`404 No such endpoint.`** when the About page is switched off, or its `contact_enabled`
+is false. Hiding the form while the route kept accepting posts would leave the thing
+switched "off" still filling a collection.
+
+**ContactMessage**
+```json
+{"id": "hex24", "name": "...", "email": "...", "message": "...",
+ "signed_in": false, "created_at": "2026-10-05T09:12:00Z"}
+```
 
 ---
 
@@ -711,14 +908,23 @@ What sharing does **not** do:
 
 ## 3b. Limits and asking for more
 
-No payment anywhere. Three features cost the server real work, so each account gets a
+No payment anywhere. Four features cost real work, so each account gets a
 **lifetime** allowance of each, counted separately — nothing resets on its own:
 
 | Feature | Spent by | Default |
 | --- | --- | --- |
 | `reel` | `POST /api/extract` (200), an ingest job that saves a new song | `FREE_REEL_LIMIT` = 5 |
 | `file` | `POST /api/identify` whose job ends with a YouTube result | `FREE_FILE_LIMIT` = 5 |
-| `lyrics` | `POST /api/lyrics/{id}/meaning` that comes back with a reading (section 2a). Finding the words is free | `FREE_LYRICS_LIMIT` = 5 |
+| `lyrics` | a lookup that comes back with words — `POST /api/songs/{id}/lyrics` or `POST /api/lyrics/search` (section 2a) | `FREE_LYRICS_LIMIT` = 5 |
+| `meaning` | `POST /api/lyrics/{id}/meaning` that comes back with a reading | `FREE_MEANING_LIMIT` = 2 |
+
+**The two halves of a lookup are two allowances**, because they cost two different
+things. Finding the words is a crawl — our own bandwidth — and a crawl that found
+nothing is refunded, so the finder declining to guess stays free. Explaining them is a
+model call and a real bill, which is why its allowance is the smallest in the app; a
+reading that came back empty (no key, lyrics too long, the model refusing) is refunded
+too, and the words it was asked about are still yours. Words you type in yourself cost
+nothing on either count.
 
 Everything else — the library, playlists, sharing, `/api/search`, a manual
 `/identify/{job}/search`, `youtube/refresh` — has no limit. Admins have none at all.
@@ -729,16 +935,18 @@ spend the last one — and then kept or given back. Every hold is also a row in
 `quota_holds`; any still there at boot belonged to work the restart killed, and is
 refunded before the ingest and lyrics queues are requeued.
 
-On the user document: `limits: {reel: 20, file: null, lyrics: 10}` (null = unlimited; a missing key =
-the default, so changing the default moves everyone still on it) and
-`used: {reel: 3, file: 0}` (successes plus holds in flight).
+On the user document: `limits: {reel: 20, file: null, lyrics: 10, meaning: 4}` (null =
+unlimited; a missing key = the default, so changing the default moves everyone still on
+it) and `used: {reel: 3, file: 0}` (successes plus holds in flight).
 
 **Quota**:
 ```json
 {"is_admin": false, "plan": "free | extended | admin",
- "defaults": {"reel": 5, "file": 5},
+ "defaults": {"reel": 5, "file": 5, "lyrics": 5, "meaning": 2},
  "reel": {"used": 3, "limit": 5, "left": 2},
- "file": {"used": 0, "limit": null, "left": null}}
+ "file": {"used": 0, "limit": null, "left": null},
+ "lyrics": {"used": 1, "limit": 5, "left": 4},
+ "meaning": {"used": 2, "limit": 2, "left": 0}}
 ```
 `limit`/`left` null = unlimited. `plan` is a label only: `extended` once an admin has moved
 any limit off the default.
@@ -762,6 +970,17 @@ Your own, newest first (50) -> `{"requests": [LimitRequest, ...]}`.
 Body `{"message": "..."}` (1–1000 chars; free text — what to grant is the admin's call).
 201 `{"request": LimitRequest}`. **One open request at a time**, enforced by a partial
 unique index: a second while one is pending is `409`.
+
+### `DELETE /api/requests/{id}`
+Take back a request nobody has answered yet -> `{"withdrawn": true}`.
+
+**Only while it is `pending`.** One open request at a time is a unique index, so without
+this a mistyped or ill-judged one blocked the only way of asking until an admin got to
+it. The row is deleted rather than marked withdrawn: the index is the thing that has to
+be freed, and a request nobody read is not history. Once answered it is the record of a
+decision and the sender does not get to remove the admin's half of it —
+`409 That request has already been answered, so there's nothing to take back.`
+Somebody else's request is a `404` like any other scoped read.
 
 ### `POST /api/requests/{id}/notes`
 
@@ -799,7 +1018,7 @@ Admins are named in config (`ADMIN_EMAILS`), not stored — there is no endpoint
 someone one. Every route below answers anyone else with **`404 {"error": "No such
 endpoint."}`**, the same as a path that doesn't exist. These are the one other place
 (besides section 3a) that reads rows belonging to other people, and they read accounts,
-requests and feedback only — never a library.
+requests, feedback and the About page's postbag only — never a library.
 
 **Account** (admin-only shape — unlike a shared playlist's owner, it carries the email):
 ```json
@@ -834,6 +1053,16 @@ most recently signed in first.
 Body `{"reel": 10}`, `{"file": null}` or both — same rules as `limits` above, with no
 request in the way. -> `{"user": Account}`.
 
+### `DELETE /api/admin/users/{id}/limits/{feature}`
+Put one feature back on the free allowance -> `{"user": Account}`. `{feature}` is a key of
+`Quota` (`reel`, `file`, `lyrics`, `meaning`); anything else is `400`.
+
+A route of its own because `PATCH` has no way to say it. Null there already means
+unlimited, and writing today's default as a number pins the account to that figure, so it
+stops following `FREE_*_LIMIT` the moment that moves. This `$unset`s the key, which is the
+difference between "unlimited" and "whatever everyone else gets" — and without it the
+first edit to anybody's limits was permanent.
+
 ### `GET /api/admin/feedback`
 Everything anyone has sent (section 2d), newest first.
 ```json
@@ -850,6 +1079,49 @@ by mistake. There is no reply from here, on purpose: the answer to feedback is w
 gets built, not a message back.
 
 ---
+
+
+### `GET /api/admin/about`
+`{"about": About}` — the editor's copy. **Unlike `GET /api/about` this keeps links whose
+`value` is empty**: those are the rows you type a URL into, and dropping the résumé row
+the moment it was cleared would leave no way to put one back.
+
+### `PUT /api/admin/about`
+Body is a whole **About** object (no `updated_at`). -> `{"about": About}`, admin shape.
+
+One form, one Save, one PUT — a field-level patch API would be three times the code to
+express the same edit. Caps: **12 sections**, heading 120 chars, body 4000, **8 links**,
+title 80, `nav_label` 30, `nav_mini_label` 12.
+
+- `title` is required — `400 Give the page a title — it's the first thing anyone reads.`
+- `nav_label` is required **when `in_nav` is true** —
+  `400 Name the rail entry, or there's nothing to click.`
+- every section needs both halves —
+  `400 Every section needs a heading and something under it.`
+- a link `value` is normalised, not just stored: an empty one is kept (that is how a link
+  is hidden), an `email` without an `@` is `400`, a `javascript:`/`data:` URL is
+  `400 A link has to be a web address.`, and a bare domain is given `https://` rather than
+  refused — stored without a scheme it would resolve against our own origin and 404.
+- `nav_mini_label` falls back to `nav_label` when left blank.
+
+**`enabled` and `in_nav` are two switches, not one.** Taking the rail entry down is
+tidying; taking the page down breaks a URL that may already be in somebody's résumé, so
+the app makes you say which you meant. `enabled` false also closes `POST /api/contact`.
+
+### `POST /api/admin/about/reset`
+No body. Writes `backend/services/about_defaults.py` back over the document and returns
+`{"about": About}`. Whatever was there is gone.
+
+### `GET /api/admin/contact`
+Everything sent from the About page (section 2f), newest first.
+`{"messages": [ContactMessage, ...]}`
+
+No rating to summarise and no `Account` attached, unlike feedback: a sender typed their
+own name and address and most of them have never signed in. `signed_in` on each row says
+whether this one happens to have.
+
+### `DELETE /api/admin/contact/{id}`
+`{"deleted": true}`, or `404 That message is already gone.`
 
 ## 4. Health / meta
 

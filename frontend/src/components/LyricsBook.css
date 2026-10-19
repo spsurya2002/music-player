@@ -1,13 +1,27 @@
 /* A facing-page spread: the words on the left, what they mean on the right.
 
    Dark only, like everything else, so the book feeling can't come from paper.
-   It comes from three things instead — a real gutter with a shadow falling into
-   it, a serif for the verse, and page numbers in the outer corners. */
+   It comes from four things instead — a real gutter with a shadow falling into
+   it, a serif for the verse, page numbers in the outer corners, and a leaf that
+   swings on the gutter when you turn it.
 
+   The turn is three layers deep: .book-page x2 underneath, .book-cast for the
+   shadow the standing leaf throws, and .book-leaf over both. LyricsBook.jsx
+   explains which content goes on which layer; this file is only the geometry
+   and the light. */
+
+/* A book is a fixed object. This is its page height, the same for every spread
+   in it, so turning a page does not resize the thing you are holding and shove
+   everything below it up or down the screen. Verse that runs long scrolls
+   inside its own page instead of stretching the book. */
 .book {
+  --book-h: clamp(400px, 64vh, 620px);
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--card);
+  /* The binding, not a card. It has to be darker than the paper or the sheets
+     at the fore-edge have nothing to be seen against — they were --card on a
+     --card surface, which is a long way of drawing nothing. */
+  background: var(--field);
   overflow: hidden;
   outline: none;
 }
@@ -16,27 +30,114 @@
   border-color: var(--accent);
 }
 
+/* The block of paper, and the room around the spread where the rest of it
+   shows. Everything below hangs off .book-spread's own box, so the leaf's
+   geometry — half the spread, hinged on the middle — is untouched by it. */
+.book-block {
+  padding: 10px 17px;
+}
+
 .book-spread {
+  position: relative;
+  /* The sheets under the one you are reading, three a side, drawn with offset
+     shadows rather than elements. Two tricks are doing the work. The negative
+     spread: a shadow pulled in by 8px is 8px shorter top and bottom as well as
+     narrower, so each sheet further out is shorter than the last and the
+     fore-edge comes out fanned and round rather than as a flat slab. And the
+     order: shadows paint first-on-top, so a face followed by a darker copy one
+     pixel wider leaves exactly a one-pixel seam between sheets. Surfaces get
+     dimmer as they recede, until the last one is barely off the background. */
+  border-radius: 3px;
+  box-shadow:
+    9px 0 0 -3px var(--placeholder),
+    10px 0 0 -3px rgba(0, 0, 0, 0.6),
+    19px 0 0 -8px var(--bg-elevated),
+    20px 0 0 -8px rgba(0, 0, 0, 0.6),
+    28px 0 0 -14px var(--card),
+    29px 0 0 -14px rgba(0, 0, 0, 0.6),
+    -9px 0 0 -3px var(--placeholder),
+    -10px 0 0 -3px rgba(0, 0, 0, 0.6),
+    -19px 0 0 -8px var(--bg-elevated),
+    -20px 0 0 -8px rgba(0, 0, 0, 0.6),
+    -28px 0 0 -14px var(--card),
+    -29px 0 0 -14px rgba(0, 0, 0, 0.6),
+    /* and the whole block sitting on something */
+    0 14px 28px -16px rgba(0, 0, 0, 0.95);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: 320px;
+  height: var(--book-h);
+  /* Shallow enough that a page near the edge doesn't shear, deep enough that
+     the leaf has somewhere to lean. */
+  perspective: 2200px;
+  /* Dead centre. Off-centre and the leaf, which projects wider than its own box
+     once it leans towards you, throws all of that spill out of one end. */
+  perspective-origin: 50% 50%;
+  /* Sideways is ours, down the page is still the page's. */
+  touch-action: pan-y;
+}
+
+.book-spread.is-turning {
+  user-select: none;
+}
+
+.book-spread.is-dragging {
+  cursor: grabbing;
 }
 
 .book-page {
   position: relative;
   padding: 28px 26px 34px;
   min-width: 0;
+  background: var(--card);
 }
 
-/* The gutter. One border for the fold, and a shadow on each page falling
-   towards it — which is what stops two columns reading as a table. */
+/* Facing pages each own their column, so each scrolls on its own — which is
+   what a reading twice the length of its couplet needs, and it keeps the folio
+   out of the moving part. */
+.book-page-body {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The bow. A page in an open book is not flat: it falls away steeply into the
+   gutter, rises to a crown around the middle, and rolls off again at the
+   fore-edge where it meets the sheets below. That is one gradient per page, run
+   from the spine outwards — which is also what stops two columns reading as a
+   table. The border is the fold itself.
+
+   Both of these appear on a leaf face too. A face that lands on the left half
+   carries .book-page-left and is mirrored by its own rotateY, so the gradient
+   comes out facing the same way its text does. */
 .book-page-left {
   border-right: 1px solid var(--line);
-  box-shadow: inset -14px 0 18px -18px rgba(0, 0, 0, 0.9);
+  border-radius: 3px 0 0 3px;
+  background:
+    linear-gradient(
+      to left,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.3) 4%,
+      rgba(0, 0, 0, 0.08) 12%,
+      rgba(255, 255, 255, 0.038) 46%,
+      rgba(255, 255, 255, 0.012) 74%,
+      rgba(0, 0, 0, 0.26) 100%
+    ),
+    var(--card);
 }
 
 .book-page-right {
-  box-shadow: inset 14px 0 18px -18px rgba(0, 0, 0, 0.9);
+  border-radius: 0 3px 3px 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.3) 4%,
+      rgba(0, 0, 0, 0.08) 12%,
+      rgba(255, 255, 255, 0.038) 46%,
+      rgba(255, 255, 255, 0.012) 74%,
+      rgba(0, 0, 0, 0.26) 100%
+    ),
+    var(--card);
 }
 
 .book-verse {
@@ -126,16 +227,228 @@
   line-height: 1.6;
 }
 
+/* ---- the leaf ---- */
+
+/* Hinged on the gutter, which is the left edge of the right-hand page going
+   forward and the right edge of the left-hand page coming back. */
+.book-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform-style: preserve-3d;
+  transition-property: transform;
+  /* Slow off the mark, quick through the middle, settling at the end — a sheet
+     with weight. The duration is inline, because a drag let go at four fifths
+     of the way across has only a fifth of the journey left to pay for. */
+  transition-timing-function: cubic-bezier(0.37, 0.09, 0.23, 1);
+  will-change: transform;
+  z-index: 3;
+}
+
+/* Under a finger there is no easing to apply: the finger is the easing. */
+.book-leaf.is-free {
+  transition: none;
+}
+
+.book-leaf.fwd {
+  left: 50%;
+  right: 0;
+  transform-origin: left center;
+}
+
+.book-leaf.back {
+  left: 0;
+  right: 50%;
+  transform-origin: right center;
+}
+
+.book-leaf-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--card);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.book-leaf-face.is-back {
+  transform: rotateY(180deg);
+}
+
+.book-leaf-face > .book-page,
+.book-leaf-face > .book-leaf-stack {
+  height: 100%;
+}
+
+/* The back of a page, on a phone, where the leaf is the whole spread and there
+   is no facing page printed on its reverse. Not flat: a sheet held up to the
+   light is brighter at the edge you are lifting. */
+.book-back {
+  height: 100%;
+  background:
+    linear-gradient(100deg, var(--bg-elevated), var(--card) 46%, var(--field));
+}
+
+/* Light. The spine edge stays dark as the leaf rises, the outer edge catches
+   what there is — which is the whole of why a flat rotation reads as paper
+   rather than as a card. Both faces take the same direction: the back face is
+   already mirrored by its own rotateY, so its local left is the spine too. */
+.book-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition-property: opacity;
+  transition-timing-function: linear;
+}
+
+.book-leaf.is-free .book-shade {
+  transition: none;
+}
+
+.book-shade.fwd {
+  background: linear-gradient(
+    to left,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(0, 0, 0, 0.35) 42%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+}
+
+.book-shade.back {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(0, 0, 0, 0.35) 42%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+}
+
+/* The shadow the standing leaf throws onto the page it is uncovering. It lives
+   over the still layer, under the leaf, and it leaves early — by the time the
+   leaf is past upright it is casting away from this page, not onto it. */
+.book-cast {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition-property: opacity;
+  transition-timing-function: linear;
+}
+
+.book-cast.fwd {
+  left: 50%;
+  right: 0;
+  background: linear-gradient(to left, transparent 55%, rgba(0, 0, 0, 0.75) 100%);
+}
+
+.book-cast.back {
+  left: 0;
+  right: 50%;
+  background: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.75) 100%);
+}
+
+/* A corner that looks picked up, so the page says it can be dragged before
+   anyone reads the line that says so. Quiet until the pointer is on the book. */
+.book-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 34px;
+  height: 34px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, width 0.2s ease, height 0.2s ease;
+  background: linear-gradient(
+    315deg,
+    var(--bg-elevated) 0%,
+    var(--bg-elevated) 48%,
+    var(--line) 49%,
+    transparent 50%
+  );
+}
+
+.book-spread:hover .book-corner {
+  opacity: 1;
+  width: 46px;
+  height: 46px;
+}
+
 /* ---- turning ---- */
 
+/* Above the leaf, not under it. A page leaning towards you is drawn taller
+   than the box it came from, and the few pixels it gains at the bottom were
+   landing on top of the page numbers. Now it passes behind them, which is what
+   a page reaching the edge of a book does anyway. */
 .book-turn {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  background: var(--field);
+}
+
+.book-turn-controls {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 10px;
-  border-top: 1px solid var(--line);
-  background: var(--field);
+}
+
+/* The left of the bar: whose words these are, then the advice about turning
+   them. The mark is the one that survives a narrow screen. */
+.book-where {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 6px;
+}
+
+.book-hint {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Where the words on the page came from, said at the foot of the book because
+   that is where you are when you wonder. The switcher above says it too, but
+   it is scrolled past by the second spread and absent in full view. */
+.book-mark {
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Yours wears the accent tint the switcher's own Yours badge wears, so the two
+   read as one fact said in two places rather than as two different facts. */
+.book-mark.is-mine {
+  border-color: rgba(214, 51, 108, 0.4);
+  background: rgba(214, 51, 108, 0.12);
+  color: var(--accent);
+}
+
+.book-turn-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+
+.book-sound[aria-pressed="false"] {
+  color: var(--muted);
 }
 
 .book-count {
@@ -150,29 +463,139 @@
   transform: rotate(180deg);
 }
 
+/* ---- full view ---- */
+
+/* The book over the whole window, by sitting above the app's own chrome rather
+   than by asking the browser for fullscreen. The Fullscreen API paints the
+   fullscreen element and nothing else, so the YouTube dock would blink out at
+   the moment somebody settles in to read with the song playing — which is the
+   only reason the dock exists. 115 is between the top bar (110) and the dock
+   (120): the page goes, the dock stays exactly where it was left.
+
+   `--book-h` stops being a clamp of the viewport here. The page is as tall as
+   the room there is, which is the whole point of asking for this. */
+.book.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 115;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  --book-h: auto;
+}
+
+.book.is-full .book-block {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 30px;
+}
+
+.book.is-full .book-spread {
+  height: 100%;
+}
+
+/* Wider pages take more words per line than verse wants, so the page gives the
+   extra room back as margin instead. */
+.book.is-full .book-page {
+  padding: 34px clamp(26px, 6vw, 90px) 40px;
+}
+
+.book-fullhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-fullhead-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- phones ---- */
 
 @media (max-width: 760px) {
   /* Two pages do not fit, and a 170px column of verse is unreadable. The pages
      stack instead, so a couplet still sits directly above its reading and the
      pairing survives even though the spread doesn't. */
+  /* One column, so the two pages are one running page and the spread scrolls
+     as a whole rather than each half separately. Horizontal stays clipped: the
+     only thing out there is a leaf in mid-turn, which is meant to be. */
   .book-spread {
     grid-template-columns: 1fr;
-    min-height: 0;
+    grid-auto-rows: min-content;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .book-page-body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .book-leaf-stack {
+    display: flex;
+    flex-direction: column;
   }
 
   .book-page {
     padding: 20px 16px 26px;
   }
 
+  /* One column hinged on its left edge, so there is one fore-edge, on the
+     right, and it is narrower — 22px of paper either side of a 360px screen is
+     the page. The bow runs the same way on both halves for the same reason. */
+  .book {
+    /* Stacked, a spread is two pages tall, so it gets more of the screen —
+       but still a fixed amount of it. */
+    --book-h: clamp(420px, 68vh, 760px);
+  }
+
+  .book-block {
+    padding: 8px 12px 8px 2px;
+  }
+
+  .book-spread {
+    box-shadow:
+      6px 0 0 -2px var(--placeholder),
+      7px 0 0 -2px rgba(0, 0, 0, 0.6),
+      12px 0 0 -7px var(--bg-elevated),
+      13px 0 0 -7px rgba(0, 0, 0, 0.6),
+      0 10px 22px -14px rgba(0, 0, 0, 0.95);
+  }
+
   .book-page-left {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    box-shadow: none;
+    border-radius: 0;
   }
 
   .book-page-right {
-    box-shadow: none;
+    border-radius: 0 0 3px 3px;
+  }
+
+  .book-page-left,
+  .book-page-right {
+    background:
+      linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.42) 0%,
+        rgba(0, 0, 0, 0.12) 7%,
+        rgba(255, 255, 255, 0.022) 52%,
+        rgba(0, 0, 0, 0.16) 100%
+      ),
+      var(--card);
+  }
+
+  .book-page-left {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .book-line {
@@ -182,5 +605,63 @@
   /* Both folios would sit on top of each other once stacked. */
   .book-folio {
     display: none;
+  }
+
+  /* One column, so the leaf is the whole page and it hinges on the outer edge
+     both ways — forward it peels off to the left, back it swings in from there. */
+  .book-leaf.fwd,
+  .book-leaf.back {
+    left: 0;
+    right: 0;
+    transform-origin: left center;
+  }
+
+  .book-shade.fwd,
+  .book-shade.back {
+    background: linear-gradient(
+      to left,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(0, 0, 0, 0.35) 42%,
+      rgba(0, 0, 0, 0.88) 100%
+    );
+  }
+
+  /* The line about dragging is desktop advice; here the gesture is the obvious
+     one and the bar is too narrow to spend on it. */
+  .book-hint,
+  .book-corner {
+    display: none;
+  }
+
+  /* The mark stays — it is the one thing in that corner worth the width — but
+     it gives way to the pager rather than pushing it off the bar. */
+  .book-mark {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Full view on a phone is the screen, and a screen that narrow has no room
+     to give back as margin — the desktop rule's 26px would be wider than the
+     page's own gutter. */
+  .book.is-full .book-block {
+    padding: 8px 10px 8px 2px;
+  }
+
+  .book.is-full .book-page {
+    padding: 20px 16px 26px;
+  }
+}
+
+/* Somebody who has asked for less movement gets the page, not the flight: the
+   leaf is never built (see LyricsBook.jsx), and nothing here should animate the
+   pages that remain. */
+@media (prefers-reduced-motion: reduce) {
+  .book-leaf,
+  .book-shade,
+  .book-cast,
+  .book-corner {
+    transition: none;
   }
 }

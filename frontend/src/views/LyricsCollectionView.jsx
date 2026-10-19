@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import * as api from "../api/client";
 import { titleOf } from "../components/LyricsBits";
 import ConfirmModal from "../components/ConfirmModal";
+import RenameLyricsModal from "../components/RenameLyricsModal";
 import Msg from "../components/Msg";
 import { CloseIcon, PencilIcon, TrashIcon } from "../components/icons";
 import "./views.css";
 import "./LyricsView.css";
+import Thumb from "../components/Thumb";
 
 /** One collection of saved lookups. */
 export default function LyricsCollectionView() {
@@ -19,6 +21,9 @@ export default function LyricsCollectionView() {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // The member being renamed, or null — the same fix the All list offers,
+  // because a lookup filed under a URL looks the same on either shelf.
+  const [renaming, setRenaming] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -124,17 +129,27 @@ export default function LyricsCollectionView() {
         <div className="link-list">
           {rows.map((r) => (
             <div className="song lyrics-row" key={r.id}>
-              {r.video?.thumbnail ? (
-                <img className="lyrics-row-thumb" src={r.video.thumbnail} alt="" />
-              ) : (
-                <span className="lyrics-row-thumb placeholder" aria-hidden="true" />
-              )}
+              <Thumb className="lyrics-row-thumb" src={r.video?.thumbnail} iconSize={15} />
               <Link to={`/lyrics/${r.id}`} className="lyrics-row-main">
                 <b>{titleOf(r)}</b>
                 <span className="via">
-                  {[r.resolved?.artist, r.meaning ? "read" : "words only"].filter(Boolean).join(" · ")}
+                  {[
+                    r.manual_artist || r.resolved?.artist,
+                    r.meaning ? "read" : "words only",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </Link>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setRenaming(r)}
+                aria-label={`Rename ${titleOf(r)}`}
+                title="Rename this lookup"
+              >
+                <PencilIcon size={16} />
+              </button>
               <button
                 type="button"
                 className="icon-btn"
@@ -147,6 +162,16 @@ export default function LyricsCollectionView() {
             </div>
           ))}
         </div>
+      )}
+
+      {renaming && (
+        <RenameLyricsModal
+          row={renaming}
+          onSaved={(updated) =>
+            setRows((list) => list.map((r) => (r.id === updated.id ? updated : r)))
+          }
+          onClose={() => setRenaming(null)}
+        />
       )}
 
       {confirmDelete && (

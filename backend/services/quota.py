@@ -1,13 +1,18 @@
-"""Limits on the two paid features: how many uses are left, and spending one.
+"""Limits on the paid features: how many uses are left, and spending one.
 
-Three features, counted separately and for life — nothing resets on its own:
+Four features, counted separately and for life — nothing resets on its own:
 
 - `reel`: pulling the audio out of an Instagram reel (the paste box and the
   share sheet both spend it).
 - `file`: finding the song behind an uploaded file.
-- `lyrics`: finding a song's words and what they mean. Charged when the words
-  turn up; a lookup that found nothing is refunded, and a missing Gemini key
-  costs nothing extra because the lyrics alone are still worth keeping.
+- `lyrics`: finding a song's words. Charged when the words turn up; a lookup
+  that found nothing is refunded, because the crawler declining to guess is the
+  honest answer and nobody should pay for it.
+- `meaning`: having those words explained. Its own allowance, and the smallest,
+  because it is the one feature here that spends money per use rather than our
+  own bandwidth — a Gemini call. A reading that came back empty (no key
+  configured, lyrics too long, the model refusing) is refunded; the words are
+  still worth keeping, and that is what the `lyrics` use already paid for.
 
 Only a success is charged — an MP3 actually produced, a file that came back
 with at least one YouTube match. But success is only known at the end, and
@@ -22,8 +27,8 @@ restart can't strand one: the work it stood for died with the process, and
 
 Per-user state lives on the user document:
 
-    limits: {reel: 20, file: None, lyrics: 10}  # None = unlimited; missing = default
-    used:   {reel: 3,  file: 0,    lyrics: 2}   # successes plus holds in flight
+    limits: {reel: 20, file: None, lyrics: 10, meaning: 4}  # None = unlimited
+    used:   {reel: 3,  file: 0,    lyrics: 2,  meaning: 1}  # successes + holds
 
 `limits` is written only when an admin changes it, so the FREE_*_LIMIT settings
 keep applying to everyone who is still on them.
@@ -39,19 +44,37 @@ from backend.config import (
     ADMIN_EMAILS,
     FREE_FILE_LIMIT,
     FREE_LYRICS_LIMIT,
+    FREE_MEANING_LIMIT,
     FREE_REEL_LIMIT,
 )
 from backend.serializers import now
 from backend.storage import to_object_id
 
-REEL, FILE, LYRICS = "reel", "file", "lyrics"
-FEATURES = (REEL, FILE, LYRICS)
-DEFAULTS = {REEL: FREE_REEL_LIMIT, FILE: FREE_FILE_LIMIT, LYRICS: FREE_LYRICS_LIMIT}
+REEL, FILE, LYRICS, MEANING = "reel", "file", "lyrics", "meaning"
+# The order is the order they are shown in: the two that make something you
+# keep, then the two halves of a lookup.
+FEATURES = (REEL, FILE, LYRICS, MEANING)
+DEFAULTS = {
+    REEL: FREE_REEL_LIMIT,
+    FILE: FREE_FILE_LIMIT,
+    LYRICS: FREE_LYRICS_LIMIT,
+    MEANING: FREE_MEANING_LIMIT,
+}
 
 # How the sentences name each feature — plural for counts, singular for "doesn't
 # include".
-NAMES = {REEL: "reel extractions", FILE: "file lookups", LYRICS: "lyric lookups"}
-NAME = {REEL: "reel extraction", FILE: "file lookup", LYRICS: "lyric lookup"}
+NAMES = {
+    REEL: "reel extractions",
+    FILE: "file lookups",
+    LYRICS: "lyric lookups",
+    MEANING: "lyric readings",
+}
+NAME = {
+    REEL: "reel extraction",
+    FILE: "file lookup",
+    LYRICS: "lyric lookup",
+    MEANING: "lyric reading",
+}
 
 # A compare-and-set that loses this many races in a row isn't racing any more.
 _ATTEMPTS = 5
@@ -222,4 +245,21 @@ async def set_limits(user_id: str, limits: dict) -> dict | None:
         return await db.users_col.find_one({"_id": oid})
     return await db.users_col.find_one_and_update(
         {"_id": oid}, {"$set": changes}, return_document=True
+    )
+
+
+async def clear_limit(user_id: str, feature: str) -> dict | None:
+    """Drop one feature's override so the FREE_*_LIMIT default applies again.
+
+    `set_limits` cannot express this: null there already means unlimited, and
+    writing the current default as a number would freeze it — the account would
+    keep that figure after the default moved, which is the opposite of
+    following it. The only way back is for the key not to be there, so this
+    `$unset`s rather than `$set`s. Returns the updated user, or None if the id
+    is not one."""
+    oid = to_object_id(user_id)
+    if not oid or feature not in FEATURES:
+        return None
+    return await db.users_col.find_one_and_update(
+        {"_id": oid}, {"$unset": {f"limits.{feature}": ""}}, return_document=True
     )

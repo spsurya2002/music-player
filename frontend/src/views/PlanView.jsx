@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api/client";
+import ConfirmModal from "../components/ConfirmModal";
 import Msg from "../components/Msg";
 import { FEATURES, QuotaMeter, limitsChange } from "../components/Quota";
+import { COFFEE_URL } from "../utils/support";
+import { CoffeeIcon } from "../components/icons";
 import { ChevronIcon } from "../components/icons";
 import { useAuth } from "../context/AuthContext";
 import { emitLimitsChanged } from "../utils/bus";
@@ -118,8 +121,9 @@ export default function PlanView() {
     <div className="view">
       <h1 className="page-title">Plan</h1>
       <p className="sub">
-        Three things here cost the server real work, so they come with a limit. Everything else —
-        your library, playlists, sharing, searching by name — has none.
+        Four things here cost real work, so they come with a limit — and explaining a song
+        costs the most, which is why it has the smallest. Everything else — your library,
+        playlists, sharing, searching by name, words you type in yourself — has none.
       </p>
 
       {/* Driven off FEATURES so a fourth limit shows up here on its own. */}
@@ -164,6 +168,21 @@ export default function PlanView() {
         </div>
       </div>
 
+      {/* Said here because this is the page about what the app costs to run,
+          and said carefully: a coffee buys nothing. Tying it to the limits
+          would make this a shop, and then asking for more would feel like
+          being upsold rather than being answered. */}
+      <a className="plan-coffee" href={COFFEE_URL} target="_blank" rel="noopener">
+        <CoffeeIcon size={20} />
+        <span>
+          <b>Buy me a coffee</b>
+          <span className="plan-coffee-sub">
+            Entirely optional, and it changes nothing here — asking for more is free and
+            always will be. It just helps with the bills behind the reels and the readings.
+          </span>
+        </span>
+      </a>
+
       {plan !== "admin" && (
         <div className="card plan-ask">
           <div className="mhead">Ask for more</div>
@@ -178,6 +197,7 @@ export default function PlanView() {
                 rows={3}
                 maxLength={1000}
                 placeholder="What do you need, and roughly how much? e.g. I save reels for my dance class — 30 more extractions would cover a month."
+                aria-label="What do you need, and roughly how much?"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
@@ -212,6 +232,13 @@ export default function PlanView() {
               onUpdated={(next) =>
                 setRequests((all) => all.map((x) => (x.id === next.id ? next : x)))
               }
+              onWithdrawn={(id) => {
+                setRequests((all) => all.filter((x) => x.id !== id));
+                // The ask form is hidden while anything is pending, so it has
+                // to be told the queue is clear again.
+                setSendMsg(null);
+                emitLimitsChanged();
+              }}
             />
           ))}
         </div>
@@ -223,7 +250,7 @@ export default function PlanView() {
 // How many lines the server will take on one thread (limits.MAX_NOTES).
 const MAX_NOTES = 12;
 
-function RequestRow({ request: r, onUpdated }) {
+function RequestRow({ request: r, onUpdated, onWithdrawn }) {
   const pending = r.state === "pending";
   const notes = r.notes || [];
   const full = notes.length >= MAX_NOTES;
@@ -232,6 +259,7 @@ function RequestRow({ request: r, onUpdated }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
   // null until you have said either way, so the default can depend on whether
   // there is anything new in there without an effect to set it.
   const [openThread, setOpenThread] = useState(null);
@@ -317,10 +345,37 @@ function RequestRow({ request: r, onUpdated }) {
 
       {/* Only while it is open. Once it has been answered there is nothing to
           chase, and the next thing to send is a new request. */}
-      {pending && !full && !asking && (
-        <button type="button" className="plan-ask-link" onClick={() => setAsking(true)}>
-          Ask about this
-        </button>
+      {pending && !asking && (
+        <div className="plan-request-actions">
+          {!full && (
+            <button type="button" className="plan-ask-link" onClick={() => setAsking(true)}>
+              Ask about this
+            </button>
+          )}
+          {/* One open request at a time, so until this existed a mistyped or
+              ill-judged one blocked the only way of asking until an admin got
+              round to it. */}
+          <button
+            type="button"
+            className="plan-ask-link danger"
+            onClick={() => setWithdrawing(true)}
+          >
+            Withdraw
+          </button>
+        </div>
+      )}
+
+      {withdrawing && (
+        <ConfirmModal
+          title="Withdraw request"
+          message="Take this back before anyone answers it? It won't be kept, and you'll be able to send a new one straight away."
+          confirmLabel="Withdraw"
+          onConfirm={async () => {
+            await api.withdrawLimitRequest(r.id);
+            onWithdrawn(r.id);
+          }}
+          onClose={() => setWithdrawing(false)}
+        />
       )}
 
       {pending && asking && (

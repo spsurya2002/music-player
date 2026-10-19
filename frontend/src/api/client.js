@@ -226,6 +226,15 @@ export function searchLyrics(q, refresh = false) {
   return request("/lyrics/search", { method: "POST", body: { q, refresh } });
 }
 
+// Stop a lookup part-way. Queued work never starts; a crawl already out at the
+// sidecar is left to finish and its answer discarded, because a thread can't be
+// cancelled and freeing the worker would only start a second crawl alongside
+// the first. Returns the row, so a lookup that landed in the meantime reports
+// itself finished rather than stopped.
+export function stopLyrics(id) {
+  return request(`/lyrics/${id}/stop`, { method: "POST" });
+}
+
 // One saved lookup by its own id. The Lyrics page's poll target.
 export function getLyricsRow(id) {
   return request(`/lyrics/${id}`);
@@ -242,10 +251,42 @@ export function listLyrics({ limit, origin, q } = {}) {
   return request(`/lyrics${qs ? `?${qs}` : ""}`);
 }
 
-// The second step, and the one that costs: read the words we already found.
-// 202 and a row to poll.
-export function explainLyrics(id) {
-  return request(`/lyrics/${id}/meaning`, { method: "POST" });
+// The second step, and the one that costs: read words the row already has.
+// 202 and a row to poll. `version` names one of your own ("mine:<id>"); left
+// out it means the best the finder came back with. A row holds one reading, so
+// naming a different version replaces it and spends another lookup.
+export function explainLyrics(id, version = null) {
+  return request(`/lyrics/${id}/meaning`, { method: "POST", body: { version } });
+}
+
+// ---- words of your own -------------------------------------------------------
+//
+// Free: no crawl, no model call. These are the answer when the finder came back
+// empty, and every one of them returns the whole row, so the page never has to
+// stitch a response into state it already holds.
+
+export function addMyLyrics(id, text, label = "") {
+  return request(`/lyrics/${id}/mine`, { method: "POST", body: { text, label } });
+}
+
+export function editMyLyrics(id, versionId, patch) {
+  return request(`/lyrics/${id}/mine/${versionId}`, { method: "PATCH", body: patch });
+}
+
+export function deleteMyLyrics(id, versionId) {
+  return request(`/lyrics/${id}/mine/${versionId}`, { method: "DELETE" });
+}
+
+// What to call a lookup. A search that found nothing resolved no title, so
+// without this its only name is the URL that was pasted.
+export function setLyricsNames(id, names) {
+  return request(`/lyrics/${id}`, { method: "PATCH", body: names });
+}
+
+// The song page's version, for a song no lookup has ever run on: the row is
+// made on the way through.
+export function addMyLyricsForSong(songId, text, label = "") {
+  return request(`/songs/${songId}/lyrics/mine`, { method: "POST", body: { text, label } });
 }
 
 // Running a search does not save it. This is the yes; deleteLyrics is the no.
@@ -318,6 +359,12 @@ export function addSongToPlaylist(playlistId, songId) {
   return request(`/playlists/${playlistId}/songs`, { method: "POST", body: { song_id: songId } });
 }
 
+// The same route, which already takes a list — so filing a selection is one
+// request rather than one per song. Adding a song already in there is a no-op.
+export function addSongsToPlaylist(playlistId, songIds) {
+  return request(`/playlists/${playlistId}/songs`, { method: "POST", body: { song_ids: songIds } });
+}
+
 export function removeSongFromPlaylist(playlistId, songId) {
   return request(`/playlists/${playlistId}/songs/${songId}`, { method: "DELETE" });
 }
@@ -386,6 +433,12 @@ export function askAboutRequest(id, text) {
   return request(`/requests/${id}/notes`, { method: "POST", body: { text } });
 }
 
+// Take back a request nobody has answered yet. Only while it is pending — and
+// it frees the one-open-request index, so you can ask again straight after.
+export function withdrawLimitRequest(id) {
+  return request(`/requests/${id}`, { method: "DELETE" });
+}
+
 // Opening the Plan page reads every answer on it.
 export function markLimitRequestsSeen() {
   return request("/requests/seen", { method: "POST" });
@@ -433,6 +486,12 @@ export function adminSetLimits(userId, limits) {
   return request(`/admin/users/${userId}/limits`, { method: "PATCH", body: limits });
 }
 
+// Back to the free allowance for one feature. Not expressible through the PATCH
+// above: null there means unlimited, so "follow the default" needs the key gone.
+export function adminClearLimit(userId, feature) {
+  return request(`/admin/users/${userId}/limits/${feature}`, { method: "DELETE" });
+}
+
 // Everything anyone has said, newest first, plus a tally over the whole
 // collection rather than over the page returned.
 export function adminListFeedback() {
@@ -450,3 +509,37 @@ export function health() {
 }
 
 export { ApiError, UNREACHABLE };
+
+// --- the About page ---------------------------------------------------------
+
+// No session needed, and that is the point: this is the page a résumé links to.
+export function getAbout() {
+  return request("/about");
+}
+
+export function sendContact({ name, email, message, website = "" }) {
+  return request("/contact", {
+    method: "POST",
+    body: { name, email, message, website },
+  });
+}
+
+export function adminGetAbout() {
+  return request("/admin/about");
+}
+
+export function adminSaveAbout(about) {
+  return request("/admin/about", { method: "PUT", body: about });
+}
+
+export function adminResetAbout() {
+  return request("/admin/about/reset", { method: "POST" });
+}
+
+export function adminListContact() {
+  return request("/admin/contact");
+}
+
+export function adminDeleteContact(id) {
+  return request(`/admin/contact/${id}`, { method: "DELETE" });
+}

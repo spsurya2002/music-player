@@ -12,6 +12,10 @@
   /* shell tokens, derived */
   --bg-elevated: #1f2029;
   --hover: rgba(255, 255, 255, 0.05);
+  /* The accent at tint strength, for the surface under an active nav row. It
+     was written out as rgba(214, 51, 108, .09) in Sidebar.css — the literal
+     this file exists to prevent. */
+  --accent-tint: rgba(214, 51, 108, 0.09);
   --field: #12131a;       /* inset controls: inputs, selects — below --card */
   --placeholder: #22232d; /* artwork/thumbnail backing before an image loads */
   --sidebar: 220px;
@@ -22,6 +26,14 @@
   --player-h: 84px;
 
   --gradient: linear-gradient(90deg, var(--accent), var(--accent-2));
+  /* The same gradient at the strength an empty thumbnail wants: enough colour
+     to read as artwork rather than as a hole, quiet enough that a list of forty
+     rows is not a stack of bright tiles. 135deg to match the brand tile. */
+  --gradient-soft: linear-gradient(
+    135deg,
+    rgba(214, 51, 108, 0.55),
+    rgba(247, 103, 7, 0.55)
+  );
 }
 
 /* Phones get a mini player (see PlayerBar.css). The shell's bottom padding and

@@ -111,3 +111,12 @@
     bottom: calc(var(--player-h) + 56px);
   }
 }
+
+/* Geometry only — the gradient, centring and white note come from
+   span.thumb-empty in components.css, which these must not override. */
+.queue-item-main .thumb-empty {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex: none;
+}

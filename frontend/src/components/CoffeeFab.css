@@ -1,0 +1,64 @@
+/* A standing offer, not a destination: a 44px disc in the one corner nothing
+   else claims.
+
+   Stacking is 95 — over the rail (90), under the player bar (100) and well
+   under the YouTube dock (120), so nothing that matters can end up behind it.
+   It sits beside the rail rather than over it, and follows the rail when it
+   collapses, on the same 0.15s the content uses so the two move together. */
+.coffee-fab {
+  position: fixed;
+  left: calc(var(--sidebar) + 18px);
+  bottom: calc(var(--player-h) + 18px);
+  z-index: 95;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--accent-2);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.9);
+  transition: left 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.coffee-fab:hover {
+  background: var(--bg-elevated);
+  /* A cup lifting off the saucer. Small enough to read as a hover state rather
+     than as the thing jumping away from the pointer. */
+  transform: translateY(-2px);
+}
+
+.coffee-fab:focus-visible {
+  border-color: var(--accent);
+}
+
+.shell.rail-mini .coffee-fab {
+  left: calc(var(--sidebar-mini) + 18px);
+}
+
+@media (max-width: 760px) {
+  /* No rail to clear, and the tabs are 56px of the bottom on top of the player
+     bar. The second selector is the same specificity trap Shell.css documents:
+     a bare `.coffee-fab` here loses to `.shell.rail-mini .coffee-fab` above,
+     and a phone whose rail was last left collapsed would park the cup 90px in
+     from the edge. */
+  .coffee-fab,
+  .shell.rail-mini .coffee-fab {
+    left: 16px;
+    bottom: calc(var(--player-h) + 56px + 16px);
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coffee-fab {
+    transition: none;
+  }
+
+  .coffee-fab:hover {
+    transform: none;
+  }
+}

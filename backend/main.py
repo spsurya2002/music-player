@@ -19,8 +19,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend import db, errors
 from backend.auth import MaybeUser
 from backend.routers import (
+    about,
     admin,
     auth,
+    contact,
     extract,
     feedback,
     identify,
@@ -31,6 +33,7 @@ from backend.routers import (
     shared,
     songs,
 )
+from backend.services import about as about_service
 from backend.services import cookies as cookies_service
 from backend.services import ingest as ingest_service
 from backend.services import lyrics_jobs
@@ -56,6 +59,10 @@ app.include_router(shared.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
 app.include_router(limits.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
+# Both are reachable with no session — /about is the page a résumé links to,
+# and the box on it has to take a message from someone who will never sign in.
+app.include_router(about.router, prefix="/api")
+app.include_router(contact.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
 
@@ -100,6 +107,9 @@ async def on_startup():
     # old process — give them back first, or a reel requeued below would be
     # charged twice for one song.
     await quota.refund_orphans()
+    # The About page's copy, if this database has never had it. Writes once
+    # and never again, so an edited page survives every restart after.
+    await about_service.ensure_seeded()
     # Anything left mid-flight by the restart that got us here goes back in the
     # queue before the worker starts, or it would sit as `running` forever.
     await ingest_service.requeue_stale()

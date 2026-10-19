@@ -1,15 +1,17 @@
 """The admin's side of limits: GET /api/admin/requests,
 POST /api/admin/requests/{id}/resolve, GET /api/admin/users,
-PATCH /api/admin/users/{id}/limits — and the reading end of feedback,
-GET /api/admin/feedback and DELETE /api/admin/feedback/{id}.
+PATCH /api/admin/users/{id}/limits — the reading end of feedback,
+GET /api/admin/feedback and DELETE /api/admin/feedback/{id}, the About page's own
+content (GET/PUT /api/admin/about, POST /api/admin/about/reset), and the
+messages it collects (GET /api/admin/contact, DELETE /api/admin/contact/{id}).
 
 Every route takes AdminUser, which answers anyone else with the same 404 as a
 path that doesn't exist. Admins are named in config (ADMIN_EMAILS), not stored,
 so there is no route here that makes somebody one.
 
 This is the one place besides routers/shared.py that reads rows belonging to
-other people — and it reads accounts, requests and feedback only, never a
-library.
+other people — and it reads accounts, requests, feedback and the About page's
+postbag only, never a library.
 """
 
 import re
@@ -18,9 +20,17 @@ from fastapi import APIRouter
 
 from backend import db, errors
 from backend.auth import AdminUser
-from backend.models import LimitsBody, RequestNoteCreate, ResolveLimitRequest
+from backend.models import AboutBody, LimitsBody, RequestNoteCreate, ResolveLimitRequest
 from backend.routers.limits import APPROVED, DECLINED, MAX_NOTES, PENDING
-from backend.serializers import feedback_to_dict, iso, limit_request_to_dict, now
+from backend.serializers import (
+    about_admin_to_dict,
+    contact_to_dict,
+    feedback_to_dict,
+    iso,
+    limit_request_to_dict,
+    now,
+)
+from backend.services import about as about_service
 from backend.services import quota
 from backend.storage import to_object_id
 
@@ -214,6 +224,25 @@ async def set_user_limits(user_id: str, body: LimitsBody, admin: AdminUser):
     return {"user": _account(doc)}
 
 
+@router.delete("/users/{user_id}/limits/{feature}")
+async def clear_user_limit(user_id: str, feature: str, admin: AdminUser):
+    """Put one feature back on the default allowance.
+
+    A route of its own because PATCH has no way to say it: null there means
+    unlimited, and the only other option — writing today's default as a number —
+    pins the account to that figure for good, so it would stop following
+    FREE_*_LIMIT the moment that moved. Removing the key is the difference
+    between "unlimited" and "whatever everyone else gets", and without it the
+    first edit to anyone's limits was permanent.
+    """
+    if feature not in quota.FEATURES:
+        raise errors.AppError(f"No such limit: {feature}.", 400)
+    doc = await quota.clear_limit(user_id, feature)
+    if not doc:
+        raise errors.AppError(errors.MISSING_USER, 404)
+    return {"user": _account(doc)}
+
+
 # --- feedback --------------------------------------------------------------
 
 
@@ -261,4 +290,110 @@ async def delete_feedback(feedback_id: str, admin: AdminUser):
     result = await db.feedback_col.delete_one({"_id": oid}) if oid else None
     if not result or result.deleted_count == 0:
         raise errors.AppError("That feedback is already gone.", 404)
+    return {"deleted": True}
+
+
+# --- the About page --------------------------------------------------------
+
+
+@router.get("/about")
+async def get_about(admin: AdminUser):
+    """The editor's copy of the document.
+
+    Not the same shape the public route returns: that one drops links with no
+    value, and here those are the empty rows you type a URL into. Dropping the
+    Résumé row the moment it was cleared would mean there was no way to put one
+    back.
+    """
+    return {"about": about_admin_to_dict(await about_service.load())}
+
+
+@router.put("/about")
+async def save_about(body: AboutBody, admin: AdminUser):
+    """Replace the whole document.
+
+    One form, one Save, one PUT. The caps on how much fits are on AboutBody,
+    so by the time anything gets here the only questions left are the ones
+    pydantic can't ask: whether the required words are actually words rather
+    than spaces, and whether each link goes anywhere.
+    """
+    title = body.title.strip()
+    if not title:
+        raise errors.AppError(errors.ABOUT_NO_TITLE, 400)
+    nav_label = body.nav_label.strip()
+    if body.in_nav and not nav_label:
+        raise errors.AppError(errors.ABOUT_NO_NAV_LABEL, 400)
+
+    sections = []
+    for index, section in enumerate(body.sections):
+        heading = section.heading.strip()
+        text = section.body.strip()
+        # A half-filled section renders as a heading with a gap under it, or a
+        # wall of text nobody can skim to. Either way it is a slip in the form,
+        # not a thing to store.
+        if not heading or not text:
+            raise errors.AppError(errors.ABOUT_EMPTY_SECTION, 400)
+        sections.append(
+            {"id": section.id.strip() or f"s{index + 1}", "heading": heading, "body": text}
+        )
+
+    links = []
+    for link in body.links:
+        kind = about_service.validate_kind(link.kind)
+        try:
+            value = about_service.normalise_link(kind, link.value)
+        except ValueError as exc:
+            raise errors.AppError(str(exc), 400) from exc
+        links.append({"kind": kind, "label": link.label.strip() or kind.title(), "value": value})
+
+    saved = await about_service.save(
+        {
+            "enabled": body.enabled,
+            "in_nav": body.in_nav,
+            "nav_label": nav_label,
+            # Collapsed to 72px the rail shows a word under the icon; without a
+            # short one it would show the full label and clip it.
+            "nav_mini_label": body.nav_mini_label.strip() or nav_label,
+            "title": title,
+            "subtitle": body.subtitle.strip(),
+            "sections": sections,
+            "links": links,
+            "contact_enabled": body.contact_enabled,
+            "contact_heading": body.contact_heading.strip(),
+            "contact_hint": body.contact_hint.strip(),
+            "contact_sent": body.contact_sent.strip(),
+        }
+    )
+    return {"about": about_admin_to_dict(saved)}
+
+
+@router.post("/about/reset")
+async def reset_about(admin: AdminUser):
+    """Put the shipped copy back. Whatever was there is gone — the page asks
+    first."""
+    return {"about": about_admin_to_dict(await about_service.reset())}
+
+
+# --- messages from the About page ------------------------------------------
+
+
+@router.get("/contact")
+async def list_contact(admin: AdminUser, limit: int = 200):
+    """Everyone who has written in, newest first.
+
+    No rating to summarise and no account to attach: a sender typed their own
+    name and address, and most of them have never signed in. `signed_in` on
+    each row says whether this one happens to have.
+    """
+    cursor = db.contact_col.find().sort("created_at", -1).limit(max(1, min(limit, 500)))
+    return {"messages": [contact_to_dict(d) async for d in cursor]}
+
+
+@router.delete("/contact/{message_id}")
+async def delete_contact(message_id: str, admin: AdminUser):
+    """For spam that got through, and for the ones already answered."""
+    oid = to_object_id(message_id)
+    result = await db.contact_col.delete_one({"_id": oid}) if oid else None
+    if not result or result.deleted_count == 0:
+        raise errors.AppError(errors.MISSING_MESSAGE, 404)
     return {"deleted": True}

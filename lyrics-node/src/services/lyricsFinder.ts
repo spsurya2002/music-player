@@ -3,6 +3,7 @@ import { TtlCache } from '../utils/cache.js';
 import { normalize, parseTextQuery } from '../utils/text.js';
 import { isYoutubeUrl, resolveYoutube } from './youtube.js';
 import { webSearch, siteWeight } from './search.js';
+import { searchKnownSites } from './siteSearch.js';
 import { crawlCandidates } from './crawler.js';
 import { canonicalize, resolveIdentities } from './songResolver.js';
 import { fetchFromLyricsApis } from './lyricsApis.js';
@@ -185,6 +186,22 @@ export async function findLyrics(input: string, options: FindOptions = {}): Prom
   // A database that recognised the song by name beats anything the crawl is
   // likely to add, and crawling costs ten seconds of blocked search engines.
   const trustDatabaseScore = 0.7;
+
+  // Ask the lyrics sites before asking a search engine which lyrics sites
+  // exist. A song no engine ever indexed is still sitting on the page it has
+  // always been on, and that page is often one we already know how to read.
+  // Their own search boxes are also forgiving about spelling in a way an index
+  // lookup is not, which is the whole difficulty with a transliterated title.
+  if (bestSoFar() < trustDatabaseScore) {
+    (await searchKnownSites(query)).forEach(push);
+
+    const pending = urls.filter((url) => !attempts.some((attempt) => attempt.url === url));
+    if (pending.length > 0) {
+      const { candidates, attempts: fresh } = await crawlCandidates(query, pending);
+      attempts.push(...fresh);
+      allCandidates.push(...candidates);
+    }
+  }
 
   const blockedEngines = new Set<string>();
 

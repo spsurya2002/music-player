@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { fmtDur } from "../utils/format";
-import { GlobeIcon } from "./icons";
+import Thumb from "./Thumb";
+import { GlobeIcon, MusicIcon } from "./icons";
 import Avatar from "./Avatar";
 import "./PlaylistCard.css";
 
@@ -17,11 +18,18 @@ export default function PlaylistCard({ playlist, owner = null, mine = false }) {
       className="playlist-card"
     >
       <div className="playlist-card-cover">
-        {playlist.cover ? (
-          <img src={playlist.cover} alt="" loading="lazy" />
-        ) : (
-          <div className="playlist-card-cover-empty" />
-        )}
+        {/* A cover URL that exists is not a cover that loads — these point at
+            Instagram's CDN, which signs them and lets them expire. Thumb falls
+            back to the empty block, making a dead URL look like no URL. */}
+        <Thumb
+          src={playlist.cover}
+          loading="lazy"
+          fallback={
+            <div className="playlist-card-cover-empty">
+              <MusicIcon size={26} />
+            </div>
+          }
+        />
       </div>
       <div className="playlist-card-name">{playlist.name}</div>
       <div className="playlist-card-meta">

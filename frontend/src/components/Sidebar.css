@@ -40,9 +40,20 @@
   background: var(--hover);
 }
 
+/* Active is said three ways — an accent bar, the accent tint, and a heavier
+   label — so the state never rests on hue alone. The label itself stays
+   --text: --accent on this tint measures 3.87:1, under the 4.5:1 AA floor for
+   14px type (WCAG 1.4.3). The icon keeps the accent, where 3:1 is the bar and
+   it clears it. */
 .sidebar-link.active {
-  background: rgba(214, 51, 108, 0.09);
+  background: var(--accent-tint);
+  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--accent);
+}
+
+.sidebar-link.active span {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .sidebar-section {
@@ -122,17 +133,35 @@
 /* Pinned to the foot of the rail. `margin-top: auto` rather than a fixed
    position: the rail is already a column, and a long "You" list should push
    this down and then scroll with everything else rather than sit on top of
-   the last playlist. */
-.sidebar-feedback {
+   the last playlist.
+
+   The pin is on the group, not on a row inside it, because only the first
+   sibling with an `auto` margin does any pushing — when this sat on
+   .sidebar-feedback, the About row added beside it landed wherever the list
+   above happened to stop. */
+.sidebar-foot {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Quieter than the destinations above, which is what this group means. Said
+   once for the group rather than per row, and left off .active so the About
+   row still takes the accent when you are standing on it. */
+.sidebar-foot .sidebar-link:not(.active) {
+  color: var(--muted);
+}
+
+.sidebar-foot .sidebar-link:not(.active):hover {
+  color: var(--text);
+}
+
+.sidebar-feedback {
   border: 0;
   background: transparent;
   width: 100%;
   cursor: pointer;
   font: inherit;
-  color: var(--muted);
-}
-
-.sidebar-feedback:hover {
-  color: var(--text);
+  text-align: left;
 }

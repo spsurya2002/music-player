@@ -34,14 +34,26 @@ select:focus {
   border-color: var(--accent);
 }
 
+/* Same padding and type size as the inputs above, because the two sit side by
+   side in a view head and 10/13.5 against 12/14 left the select noticeably
+   shorter than the search field beside it. A select still measures its own
+   height differently from an input, so the two are also told to match line-box
+   for line-box rather than relying on the padding alone. */
 select {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--text);
-  font-size: 13.5px;
+  font-size: 14px;
+  line-height: 1.2;
   outline: none;
+}
+
+input[type="text"],
+input[type="url"],
+input[type="search"] {
+  line-height: 1.2;
 }
 
 .btn {
@@ -357,4 +369,35 @@ select {
   .card {
     padding: 14px;
   }
+}
+
+/* Artwork that is missing or dead (components/Thumb.jsx). It carries whichever
+   artwork class the image would have had — every one of them already sets a
+   size and a --placeholder background — so this only has to centre the note
+   inside that box. */
+/* `span.thumb-empty`, not `.thumb-empty`: this element also carries the artwork
+   class the image would have had — .song-row-thumb, .detail-art and the rest —
+   and every one of those sets `background: var(--placeholder)`. Two single-class
+   rules would be settled by stylesheet order; element+class simply outranks
+   them, which is the same result without an !important. */
+span.thumb-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* A tinted gradient and a white note rather than a grey note on a dark tile:
+     the grey one read as blank in a list, which is the thing this exists to
+     avoid. It is the treatment the empty playlist cover already uses, so a song
+     with no artwork and a playlist with no artwork are the same kind of
+     absence. */
+  background: var(--gradient-soft);
+  color: #fff;
+  overflow: hidden;
+}
+
+/* Geometry only — see span.thumb-empty. */
+.yt .thumb-empty {
+  width: 68px;
+  height: 38px;
+  border-radius: 6px;
+  flex: none;
 }

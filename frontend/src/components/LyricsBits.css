@@ -200,5 +200,70 @@
 .lyrics-scripts {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+/* Versions you added sit after the ones we found, with a hairline between: two
+   kinds of thing in one switcher, and which is which should be readable before
+   you press anything. */
+.lyrics-scripts-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--line);
+}
+
+.pill.mine {
+  border-style: dashed;
+}
+
+.pill.mine.active {
+  border-style: solid;
+}
+
+/* The way in, always last, and never the selected one — it opens a box rather
+   than changing what is on screen. */
+.lyrics-add-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.lyrics-add-pill:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Not a confidence score: nobody scored these, you wrote them. */
+.lyrics-mine-badge {
+  background: rgba(214, 51, 108, 0.12);
+  border-color: rgba(214, 51, 108, 0.4);
+  color: var(--accent);
+}
+
+/* A song holds one reading, so switching to a version without it has to say
+   where the reading went and what getting it here would cost. */
+.lyrics-other-reading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+}
+
+.lyrics-other-reading .hint {
+  margin: 0;
+  flex: 1;
+  min-width: 220px;
+}
+
+.lyrics-other-reading .btn {
+  flex: none;
 }

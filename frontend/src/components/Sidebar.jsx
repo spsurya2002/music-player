@@ -11,6 +11,7 @@ import {
   LinkIcon,
   LyricsIcon,
   PlaylistIcon,
+  SleeveIcon,
 } from "./icons";
 import "./Sidebar.css";
 
@@ -28,7 +29,7 @@ const OPEN_KEY = "rail-you-open";
  * "You" holds everything that is a collection of your own, collapsible the way
  * YouTube's is. Hidden entirely on phones; MobileTabs takes over there.
  */
-export default function Sidebar({ mini }) {
+export default function Sidebar({ mini, about }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [youOpen, setYouOpen] = useState(() => {
     try {
@@ -77,7 +78,7 @@ export default function Sidebar({ mini }) {
           end
           icon={<LyricsIcon size={22} />}
           label="Find lyrics"
-          miniLabel="Lyrics"
+          miniLabel="Find"
           mini={mini}
         />
       </div>
@@ -114,11 +115,17 @@ export default function Sidebar({ mini }) {
               mini={mini}
             />
             {/* The saved half of the same feature. "Find lyrics" above is the
-                act; this is what you kept, which is what this tier means. */}
+                act; this is what you kept, which is what this tier means.
+                Both rows are named for which half they are, never just
+                "Lyrics": collapsed, this one read "Lyrics" and so did the
+                miniLabel above it, two rows to different routes under one
+                word, with the "You" heading that separated them hidden at
+                that width. That is the Playlists mistake again. */}
             <RailLink
               to="/lyrics/saved"
               icon={<LyricsIcon size={22} />}
-              label="Lyrics"
+              label="Saved lyrics"
+              miniLabel="Saved"
               mini={mini}
             />
             {/* Was "Inbox", which named a mailbox. It is the queue of reels the
@@ -133,19 +140,44 @@ export default function Sidebar({ mini }) {
         )}
       </div>
 
-      {/* Not a destination, so not a RailLink: it opens where you already are.
-          It sits at the foot of the rail, away from the places, because it is
-          about the app rather than in it. The account menu carries the same
-          thing for phones, where there is no rail at all. */}
-      <button
-        type="button"
-        className="sidebar-link sidebar-feedback"
-        onClick={() => setFeedbackOpen(true)}
-        title={mini ? "Feedback" : undefined}
-      >
-        <FeedbackIcon size={22} />
-        <span>Feedback</span>
-      </button>
+      {/* The foot: the rows that are about the app rather than places inside
+          it. They live in a wrapper because `margin-top: auto` is what pins
+          them down there and only the first `auto` sibling pushes — a second
+          row added beside one that carried it would sit wherever the "You"
+          list above happened to stop.
+
+          Buying a coffee was briefly a row here too, and shouldn't have been:
+          worded and in this list, it read as somewhere to go. It floats
+          instead — components/CoffeeFab.jsx. */}
+      <div className="sidebar-foot">
+        {/* The exception in this group: it *is* somewhere to go, so it is a
+            RailLink and takes the active state the other row has no use for.
+            Its label comes from the page's own document rather than from here
+            — the rail and the page have to say the same word, which is the
+            mistake Playlists and Lyrics above each made once. */}
+        {about?.enabled && about?.in_nav && (
+          <RailLink
+            to="/about"
+            icon={<SleeveIcon size={22} />}
+            label={about.nav_label}
+            miniLabel={about.nav_mini_label}
+            mini={mini}
+          />
+        )}
+
+        {/* Not a destination, so not a RailLink: it opens where you already
+            are. The account menu carries the same thing for phones, where
+            there is no rail at all. */}
+        <button
+          type="button"
+          className="sidebar-link sidebar-feedback"
+          onClick={() => setFeedbackOpen(true)}
+          title={mini ? "Feedback" : undefined}
+        >
+          <FeedbackIcon size={22} />
+          <span>Feedback</span>
+        </button>
+      </div>
 
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
     </nav>

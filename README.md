@@ -225,17 +225,23 @@ survives across sessions.
 | `FREE_REEL_LIMIT` | `5` | reel extractions a new account gets |
 | `FREE_FILE_LIMIT` | `5` | file lookups a new account gets |
 | `FREE_LYRICS_LIMIT` | `5` | lyric lookups a new account gets |
+| `FREE_MEANING_LIMIT` | `2` | explanations of those lyrics a new account gets |
 | `GEMINI_API_KEY` | — | in `lyrics-node/.env`: explains the lyrics. Without it they're still found |
 | `LYRICS_SIDECAR_URL` | `http://127.0.0.1:4001` | where the lyrics sidecar listens |
 | `LYRICS_TIMEOUT` | `240` | seconds to allow one lyrics lookup |
 
 ## Limits and the admin
 
-Three features cost the server real work — pulling audio out of a reel (yt-dlp + ffmpeg +
-Shazam), identifying a file (fingerprints, then Whisper on CPU), and finding a song's
-lyrics and what they mean (a crawl, then a model call) — so each account gets
-`FREE_REEL_LIMIT`, `FREE_FILE_LIMIT` and `FREE_LYRICS_LIMIT` of them, counted separately
-and never reset.
+Four features cost real work — pulling audio out of a reel (yt-dlp + ffmpeg + Shazam),
+identifying a file (fingerprints, then Whisper on CPU), finding a song's lyrics (a crawl),
+and explaining them (a model call) — so each account gets `FREE_REEL_LIMIT`,
+`FREE_FILE_LIMIT`, `FREE_LYRICS_LIMIT` and `FREE_MEANING_LIMIT` of them, counted
+separately and never reset.
+
+The last one is deliberately the smallest: a crawl spends our own bandwidth, but an
+explanation is a Gemini call and a real bill, so two is what an account gets to see what
+the feature is before asking for more. Words you type in yourself are free on both
+counts, and so is a lookup that came back with nothing.
 
 - **Only successes count.** A use is held when the work starts, so two tabs can't both
   spend the last one, then kept on success or given back. A restart refunds anything that
