@@ -10,7 +10,7 @@ import CoffeeFab from "./components/CoffeeFab";
 import { usePlayer } from "./context/PlayerContext";
 import { useAuth } from "./context/AuthContext";
 import SignInPrompt from "./components/SignInPrompt";
-import { PlusIcon, LibraryIcon, LyricsIcon, PlaylistIcon, InboxIcon, UserIcon, GaugeIcon, ShieldIcon } from "./components/icons";
+import { PlusIcon, LibraryIcon, LyricsIcon, PlaylistIcon, InboxIcon, UserIcon, GaugeIcon, ShieldIcon, RoomIcon } from "./components/icons";
 import useGlobalShortcuts from "./hooks/useGlobalShortcuts";
 import useAbout from "./hooks/useAbout";
 import SearchView from "./views/SearchView";
@@ -32,6 +32,8 @@ import AccountView from "./views/AccountView";
 import PlanView from "./views/PlanView";
 import AdminView from "./views/AdminView";
 import AboutView from "./views/AboutView";
+import RoomsView from "./views/RoomsView";
+import RoomView from "./views/RoomView";
 import "./Shell.css";
 
 // Sidebar, PlayerBar, QueuePanel, the YouTube modal and the floating support
@@ -42,7 +44,8 @@ import "./Shell.css";
 const RAIL_KEY = "rail-mini";
 
 export default function Shell() {
-  const { queueOpen } = usePlayer();
+  const { queueOpen, room } = usePlayer();
+  const guest = room?.status === "open" && room.role === "guest";
   useGlobalShortcuts();
   // Read once, here, and handed to the three navigations below. They each
   // need the same two flags and the same label, and the hook caches the
@@ -73,7 +76,7 @@ export default function Shell() {
   }, []);
 
   return (
-    <div className={"shell" + (mini ? " rail-mini" : "")}>
+    <div className={"shell" + (mini ? " rail-mini" : "") + (guest ? " guest-room" : "")}>
       <TopBar onToggleRail={toggleRail} about={about} />
       <Sidebar mini={mini} about={about} />
       <MobileTabs about={about} />
@@ -196,6 +199,30 @@ export default function Shell() {
             }
           />
           <Route path="/playlists/:id" element={<Gated {...GATE.playlist}><PlaylistDetailView /></Gated>} />
+          <Route
+            path="/rooms"
+            element={
+              <Gated
+                icon={<RoomIcon size={34} />}
+                title="Listen together"
+                line="Start a room, share the code, and choose who comes in. Sign in — a room is tied to your account, and so is the music."
+              >
+                <RoomsView />
+              </Gated>
+            }
+          />
+          <Route
+            path="/rooms/:code"
+            element={
+              <Gated
+                icon={<RoomIcon size={34} />}
+                title="This room needs an account"
+                line="Sign in so the host can see who you are before letting you in."
+              >
+                <RoomView />
+              </Gated>
+            }
+          />
           {/* One shared playlist. Kept off /playlists so a link to one can never
               be mistaken for a link to your own. */}
           <Route path="/shared/:id" element={<SharedPlaylistView />} />
@@ -255,7 +282,7 @@ export default function Shell() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      {queueOpen && <QueuePanel />}
+      {queueOpen && !guest && <QueuePanel />}
       <CoffeeFab />
       <PlayerBar />
       <YouTubePlayer />

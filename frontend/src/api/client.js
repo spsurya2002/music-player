@@ -502,6 +502,77 @@ export function adminDeleteFeedback(id) {
   return request(`/admin/feedback/${id}`, { method: "DELETE" });
 }
 
+// ---- Listening rooms -----------------------------------------------------------
+
+export function createRoom() {
+  return request("/rooms", { method: "POST" });
+}
+
+export function currentRoom() {
+  return request("/rooms/current");
+}
+
+export function joinRoom(code) {
+  return request("/rooms/join", { method: "POST", body: { code } });
+}
+
+export function getRoom(code) {
+  return request(`/rooms/${encodeURIComponent(code)}`);
+}
+
+export function decideRoomMember(code, userId, allow) {
+  return request(`/rooms/${encodeURIComponent(code)}/members/${encodeURIComponent(userId)}`, {
+    method: "POST",
+    body: { allow },
+  });
+}
+
+export function kickRoomMember(code, userId) {
+  return request(`/rooms/${encodeURIComponent(code)}/members/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function leaveRoom(code) {
+  return request(`/rooms/${encodeURIComponent(code)}/leave`, { method: "POST" });
+}
+
+export function roomCommand(code, body) {
+  return request(`/rooms/${encodeURIComponent(code)}/command`, { method: "POST", body });
+}
+
+// The one connection that isn't fetch. Same origin, so the session cookie
+// goes with the upgrade. Commands the host sends also have a POST above, for
+// the moment this socket isn't open yet.
+export function openRoomSocket(code, { onMessage, onClose }) {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(
+    `${proto}://${window.location.host}/api/rooms/${encodeURIComponent(code)}/ws`
+  );
+  let shut = false;
+  ws.onmessage = (event) => {
+    try {
+      onMessage(JSON.parse(event.data));
+    } catch {
+      // A frame that isn't JSON isn't a command.
+    }
+  };
+  ws.onclose = () => {
+    if (!shut && onClose) onClose();
+  };
+  return {
+    send(msg) {
+      if (ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(JSON.stringify(msg));
+      return true;
+    },
+    close() {
+      shut = true;
+      ws.close();
+    },
+  };
+}
+
 // ---- Health -------------------------------------------------------------------
 
 export function health() {

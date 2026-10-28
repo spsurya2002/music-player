@@ -1123,6 +1123,113 @@ whether this one happens to have.
 ### `DELETE /api/admin/contact/{id}`
 `{"deleted": true}`, or `404 That message is already gone.`
 
+## 3d. Listening rooms
+
+A room is one host and the people they let in, listening to the host's queue at the
+same time. Each browser plays the file itself — the server only stores the queue, the
+track index, whether it is playing, and a position anchored to server time
+(`position_ms` was true at `anchored_at`). Signed in only. Listening does not spend
+reel, file, or lyrics quota.
+
+The host is the only one who can change playback. Starting a second room ends the one
+they were hosting. A person is in at most one room: joining leaves any other room they
+were waiting in or listening to, and is refused while they still host one
+(`400 End the room you're hosting before joining another.`).
+
+**Audio is not public.** `GET /api/rooms/{code}/audio?song={id}` re-checks, on every
+request including every Range request, that the caller is the host or an **accepted**
+member, the room is still open, and that song id is in the queue right now. Otherwise
+`404 That song isn't in this room.` Ending the room, refusing someone, or removing them
+stops the file on the next byte range. Nothing here sets `is_public`.
+
+A room song in a snapshot is a Song with `audio_url` pointing at that route and
+`"room": true`. Play counts are not incremented for a guest.
+
+### Room
+
+```json
+{
+  "id": "…",
+  "code": "AB23CD45",
+  "status": "open",
+  "role": "host",
+  "host": { "id": "…", "name": "…", "given_name": "…", "picture": null },
+  "index": 0,
+  "loop": "off",
+  "playing": true,
+  "position_ms": 12000,
+  "anchored_at": "2026-01-01T00:00:00Z",
+  "server_now": "2026-01-01T00:00:05Z",
+  "queue": [],
+  "members": [],
+  "listeners": 1
+}
+```
+
+`loop` is `off` | `all` | `one`. While `playing` is true, the position to be at is
+`position_ms + (server_now - anchored_at)`, and the client keeps that moving with its
+own clock. `members` is name and picture only — never an email. Pending askers appear
+in `members` (`"status": "pending"`) for the host and for nobody else. Accepted
+members have `"status": "accepted"`. `listeners` counts the host plus accepted members.
+
+Until someone is let in, a snapshot is only:
+
+```json
+{ "code": "AB23CD45", "status": "pending", "role": "guest", "host": { "id": "…", "name": "…", "given_name": "…", "picture": null } }
+```
+
+Someone with the code who has not asked yet gets `{ "code", "status": "joinable" }` —
+no queue and no titles.
+
+`code` is 8 characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`.
+
+### WebSocket `GET /api/rooms/{code}/ws`
+
+Cookie session, same as everything else. One socket per tab. The server sends
+`{"type":"state","room": Room}` on connect and whenever the room changes, and
+`{"type":"ping","server_now":"..."}` about every 20 seconds (the tunnel drops a quiet
+connection). The client answers `{"type":"pong"}` and may send `{"type":"ping"}` too.
+
+Host commands, also accepted as `POST /api/rooms/{code}/command` with the same body
+when the socket is not open yet:
+
+| `type` | fields | effect |
+| --- | --- | --- |
+| `play` / `pause` / `seek` | `position_ms` | move the shared clock. `seek` leaves playing as it was. |
+| `queue` | `song_ids`, `index`, `loop?`, `restart?` | replace the queue with songs **from the host's library**, in that order. `restart: true` starts at 0 and plays. |
+| `skip` | `index` | that track, from 0, playing. |
+| `loop` | `loop` | `off` \| `all` \| `one`. |
+| `ended` | — | the host's player reached the end. The server advances the way the player does: repeat one, else the next track, else loop all, else stop on the last track. Guests do not send this. |
+
+A guest who sends a command gets `{"type":"error","error":"Only the host can do that."}`.
+Songs that are not the host's are `400 Only songs from your library can play in a room.`
+
+The host's socket dropping does not end the room for 60 seconds, so a refresh can
+rejoin. If they do not, the room ends and everyone still connected gets
+`{"status":"ended"}`.
+
+### Routes
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| `POST` | `/api/rooms` | — | `201 {"room": Room}`. Ends any open room this person already hosts. |
+| `GET` | `/api/rooms/current` | — | `{"room": Room \| waiting \| null}` — the open room they host, else one they are accepted in or waiting on. |
+| `POST` | `/api/rooms/join` | `{"code"}` | `{"room"}` — full Room if they are the host or already accepted, otherwise the waiting shape. |
+| `GET` | `/api/rooms/{code}` | — | full Room, waiting, or joinable. |
+| `POST` | `/api/rooms/{code}/members/{user_id}` | `{"allow": true\|false}` | host only. `{"room": Room}` |
+| `DELETE` | `/api/rooms/{code}/members/{user_id}` | — | host removes someone already inside. `{"room": Room}` |
+| `POST` | `/api/rooms/{code}/leave` | — | a guest leaves; the host ending the room is the same call. `{"room": {"code","status":"left"\|"ended"}}` |
+| `POST` | `/api/rooms/{code}/command` | command object | host only. `{"room": Room}` and the same state is pushed to every socket. |
+| `GET` | `/api/rooms/{code}/audio?song={id}` | — | the MP3, same Range contract as `/api/songs/{id}/audio`. |
+
+- Unknown code: `404 That room doesn't exist.`
+- Ended: `404 That room has ended.`
+- Refused or removed: `404 You can't join this room.`
+- Bad code shape: `400 That room code doesn't look right.`
+- Not the host: `403 Only the host can do that.`
+- Joining too fast: `429 That's a lot of rooms at once — wait a minute and try again.`
+- Queue longer than 500: `400 That's more songs than a room can hold.`
+
 ## 4. Health / meta
 
 `GET /api/health` -> `{"ok": true, "storage": "gridfs", "authenticated": true|false,
@@ -1145,6 +1252,12 @@ person. Public, so a browser with no session can still tell the server is up.
 - Duplicate playlist name: `You already have a playlist called "X".`
 - Playlist not shared (or never was): `That playlist isn't shared.`
 - Shared song gone: `That song isn't in a shared playlist any more.`
+- Room missing / ended / refused: `That room doesn't exist.` / `That room has ended.` /
+  `You can't join this room.`
+- Room code: `That room code doesn't look right.`
+- Room host only: `Only the host can do that.`
+- Room library: `Only songs from your library can play in a room.`
+- Room audio: `That song isn't in this room.`
 - Not signed in: `Sign in to continue.`
 - Session gone: `Your session has expired — sign in again.` (the frontend's own wording
   after a 401 — the server just says the sentence above)

@@ -1,6 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api/client";
 import { onSignedOut } from "../utils/bus";
+import { songTitle } from "../utils/format";
+
+// A silent clip, played inside the click that joins a room. Browsers only
+// allow sound after a gesture, and the host's "play" arrives later, over the
+// socket — too late to be that gesture. Starting this here is what lets the
+// real song start on its own.
+const SILENCE =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
 const PlayerContext = createContext(null);
 
@@ -33,6 +41,24 @@ export function PlayerProvider({ children }) {
 
   const lastPlayedRef = useRef(null); // song id we already fired /played for, this "load"
 
+  // A listening room shares this one element. The host publishes what it does;
+  // a guest follows the server clock and does not drive it.
+  const roomRoleRef = useRef(null); // "host" | "guest" | null
+  const roomPlayingRef = useRef(false);
+  const clockRef = useRef(null);
+  const wantRef = useRef(null);
+  const socketRef = useRef(null);
+  const reconnectRef = useRef(null);
+  const pendingSeekRef = useRef(null);
+  const applyRef = useRef(() => {});
+  const sendRef = useRef(() => {});
+  const stopRef = useRef(() => {});
+  const resumeGuestRef = useRef(() => {});
+  const resumeTimerRef = useRef(null);
+  const openSocketRef = useRef(() => {});
+  const closeSocketRef = useRef(() => {});
+  const [room, setRoom] = useState(null);
+
   const currentSong = currentIndex >= 0 ? queue[currentIndex] : null;
 
   // Wire the single persistent <audio> element once.
@@ -54,7 +80,13 @@ export function PlayerProvider({ children }) {
         // The iframe went away mid-call; nothing to pause.
       }
     };
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      // A media key or the phone's notification pauses the element directly.
+      // For a guest that pause is not theirs to keep — the host is still playing.
+      resumeGuestRef.current("pause");
+    };
+    const onSeeked = () => resumeGuestRef.current("seek");
     const onEnded = () => handleEnded();
     // Don't assert a cause here — a failed load is just as likely to be the
     // server being down or the file being unreadable as the song being gone.
@@ -64,6 +96,7 @@ export function PlayerProvider({ children }) {
     audio.addEventListener("loadedmetadata", onLoaded);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("seeked", onSeeked);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
     return () => {
@@ -71,6 +104,7 @@ export function PlayerProvider({ children }) {
       audio.removeEventListener("loadedmetadata", onLoaded);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("seeked", onSeeked);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
@@ -83,6 +117,7 @@ export function PlayerProvider({ children }) {
   useEffect(
     () =>
       onSignedOut(() => {
+        stopRef.current(false);
         const audio = audioRef.current;
         if (audio) {
           audio.pause();
@@ -112,15 +147,40 @@ export function PlayerProvider({ children }) {
     // user and would 404 on it. Every Song the API returns carries the field,
     // so this is the general case, not a special one.
     const src = currentSong.audio_url || api.songAudioUrl(currentSong.id);
-    if (audio.src.indexOf(src) === -1) {
+    const loaded = trackLoaded(audio, currentSong);
+    if (!loaded) {
       setPlayerError("");
       // Seed the clock from the saved metadata rather than waiting for
       // loadedmetadata. Otherwise the previous track's duration stays on screen
       // until the new one loads — and stays for good if the load fails.
+      const follow = roomRoleRef.current;
+      const startAt = follow ? pendingSeekRef.current || 0 : 0;
+      pendingSeekRef.current = null;
       setDuration(currentSong.duration || 0);
-      setCurrentTime(0);
+      setCurrentTime(startAt);
+      const shouldPlay = follow ? roomPlayingRef.current : true;
       audio.src = src;
-      audio.play().catch(() => {});
+      const onReady = () => {
+        if (roomRoleRef.current) {
+          try {
+            audio.currentTime = startAt;
+          } catch {
+            // Metadata arrived without a seekable range yet. The drift tick
+            // pulls a guest back into line once the file will take a seek.
+          }
+        }
+        if (shouldPlay) audio.play().catch(() => {});
+      };
+      audio.addEventListener("loadedmetadata", onReady, { once: true });
+    } else if (roomRoleRef.current && pendingSeekRef.current != null) {
+      const at = pendingSeekRef.current;
+      pendingSeekRef.current = null;
+      if (Math.abs((audio.currentTime || 0) - at) > 0.4) audio.currentTime = at;
+      if (roomPlayingRef.current && audio.paused) {
+        audio.play().catch(() => {});
+      } else if (!roomPlayingRef.current && !audio.paused) {
+        audio.pause();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, queue]);
@@ -132,15 +192,28 @@ export function PlayerProvider({ children }) {
     if (!currentSong) return;
     if (!playing) return;
     if (currentSong.shared) return;
+    // A guest hearing the host's file is not the host's listening history.
+    // The host's own plays still count.
+    if (currentSong.room && roomRoleRef.current !== "host") return;
     if (lastPlayedRef.current === currentSong.id) return;
     lastPlayedRef.current = currentSong.id;
     api.markPlayed(currentSong.id).catch(() => {});
   }, [currentSong, playing]);
 
   function handleEnded() {
+    // The silent clip used to unlock autoplay is not a song. Letting it end
+    // must not skip whatever the host has queued.
+    if ((audioRef.current?.src || "").startsWith("data:")) return;
     // Read loop mode through the ref, never the state variable: the "ended"
     // listener is bound once with [] deps, so this closure keeps whatever
     // loopMode held on first render ("off") and every loop setting is ignored.
+    // In a room only the host reports the end, and the server decides what
+    // plays next. A guest that reached the end a moment early just waits.
+    if (roomRoleRef.current === "guest") return;
+    if (roomRoleRef.current === "host") {
+      sendRef.current({ type: "ended" });
+      return;
+    }
     if (loopModeRef.current === "one") {
       const audio = audioRef.current;
       audio.currentTime = 0;
@@ -175,6 +248,10 @@ export function PlayerProvider({ children }) {
 
   const playQueue = useCallback((songs, startIndex = 0, opts = {}) => {
     if (!songs || songs.length === 0) return;
+    if (roomRoleRef.current === "guest") {
+      setPlayerError("Only the host picks what plays.");
+      return;
+    }
     lastPlayedRef.current = null;
     setQueue(songs);
     setActivePlaylistId(opts.playlistId ?? null);
@@ -186,6 +263,17 @@ export function PlayerProvider({ children }) {
     else if (!opts.playlistId) setLoopModeState("off");
     setCurrentIndex(startIndex);
     setPlayerError("");
+    if (roomRoleRef.current === "host") {
+      roomPlayingRef.current = true;
+      const loop = opts.loop || (!opts.playlistId ? "off" : undefined);
+      sendRef.current({
+        type: "queue",
+        song_ids: songs.map((song) => song && song.id).filter(Boolean),
+        index: startIndex,
+        restart: true,
+        ...(loop ? { loop } : {}),
+      });
+    }
   }, []);
 
   const playSongNow = useCallback(
@@ -195,36 +283,59 @@ export function PlayerProvider({ children }) {
     [playQueue]
   );
 
-  // Nothing is loaded, so there is nothing for a queue to come after — and
-  // nowhere to see it either: the player bar shows "Nothing playing" and hides
-  // its queue button until a song is current. So the first one added starts,
-  // rather than sitting in a drawer with no handle on it.
-  const startedIdle = useCallback(() => {
-    if (currentIndexRef.current >= 0) return false;
-    lastPlayedRef.current = null;
-    setCurrentIndex(0);
-    return true;
-  }, []);
-
   const playNext = useCallback((song) => {
-    const idle = startedIdle();
-    setQueue((q) => {
-      if (idle) return [song];
-      const copy = q.slice();
+    if (roomRoleRef.current === "guest") {
+      setPlayerError("Only the host picks what plays.");
+      return;
+    }
+    if (!song) return;
+    const idle = currentIndexRef.current < 0;
+    const copy = idle ? [song] : queueRef.current.slice();
+    if (idle) {
+      lastPlayedRef.current = null;
+      roomPlayingRef.current = true;
+      setCurrentIndex(0);
+    } else {
       copy.splice(currentIndexRef.current + 1, 0, song);
-      return copy;
-    });
-  }, [startedIdle]);
+    }
+    setQueue(copy);
+    if (roomRoleRef.current === "host") {
+      sendRef.current({
+        type: "queue",
+        song_ids: copy.map((item) => item && item.id).filter(Boolean),
+        index: idle ? 0 : currentIndexRef.current,
+        restart: idle,
+      });
+    }
+  }, []);
 
   // Onto the end, interrupting nothing — that is the whole difference from
   // playSongNow, which throws the queue away. Takes one song or a whole
   // playlist, and keeps the order it was given.
   const addToQueue = useCallback((songs) => {
+    if (roomRoleRef.current === "guest") {
+      setPlayerError("Only the host picks what plays.");
+      return;
+    }
     const added = (Array.isArray(songs) ? songs : [songs]).filter(Boolean);
     if (added.length === 0) return;
-    startedIdle();
-    setQueue((q) => q.concat(added));
-  }, [startedIdle]);
+    const idle = currentIndexRef.current < 0;
+    const copy = idle ? added : queueRef.current.concat(added);
+    if (idle) {
+      lastPlayedRef.current = null;
+      roomPlayingRef.current = true;
+      setCurrentIndex(0);
+    }
+    setQueue(copy);
+    if (roomRoleRef.current === "host") {
+      sendRef.current({
+        type: "queue",
+        song_ids: copy.map((item) => item && item.id).filter(Boolean),
+        index: idle ? 0 : currentIndexRef.current,
+        restart: idle,
+      });
+    }
+  }, []);
 
   const currentIndexRef = useRef(currentIndex);
   useEffect(() => {
@@ -233,16 +344,30 @@ export function PlayerProvider({ children }) {
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
+    if (roomRoleRef.current === "guest") return;
     if (!audio || !currentSong) return;
-    if (audio.paused) audio.play().catch(() => {});
-    else audio.pause();
+    if (audio.paused) {
+      audio.play().catch(() => {});
+      if (roomRoleRef.current === "host") {
+        sendRef.current({ type: "play", position_ms: positionMs(audio) });
+      }
+    } else {
+      audio.pause();
+      if (roomRoleRef.current === "host") {
+        sendRef.current({ type: "pause", position_ms: positionMs(audio) });
+      }
+    }
   }, [currentSong]);
 
   const seek = useCallback((t) => {
+    if (roomRoleRef.current === "guest") return;
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = t;
     setCurrentTime(t);
+    if (roomRoleRef.current === "host") {
+      sendRef.current({ type: "seek", position_ms: positionMs(t) });
+    }
   }, []);
 
   const seekBy = useCallback(
@@ -261,49 +386,50 @@ export function PlayerProvider({ children }) {
   }, []);
 
   const next = useCallback(() => {
-    setCurrentIndex((idx) => {
-      const q = queueRef.current;
-      if (idx + 1 < q.length) {
-        lastPlayedRef.current = null;
-        return idx + 1;
-      }
-      if (loopMode === "all" && q.length > 0) {
-        lastPlayedRef.current = null;
-        return 0;
-      }
-      return idx;
-    });
-  }, [loopMode]);
+    if (roomRoleRef.current === "guest") return;
+    const q = queueRef.current;
+    const idx = currentIndexRef.current;
+    let to = idx;
+    if (idx + 1 < q.length) to = idx + 1;
+    else if (loopModeRef.current === "all" && q.length > 0) to = 0;
+    if (to === idx) return;
+    lastPlayedRef.current = null;
+    setCurrentIndex(to);
+    if (roomRoleRef.current === "host") sendRef.current({ type: "skip", index: to });
+  }, []);
 
   const prev = useCallback(() => {
+    if (roomRoleRef.current === "guest") return;
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
       seek(0);
       return;
     }
-    setCurrentIndex((idx) => {
-      if (idx > 0) {
-        lastPlayedRef.current = null;
-        return idx - 1;
-      }
-      return idx;
-    });
+    const idx = currentIndexRef.current;
+    if (idx <= 0) return;
+    lastPlayedRef.current = null;
+    setCurrentIndex(idx - 1);
+    if (roomRoleRef.current === "host") sendRef.current({ type: "skip", index: idx - 1 });
   }, [seek]);
 
   const jumpTo = useCallback((index) => {
+    if (roomRoleRef.current === "guest") return;
     lastPlayedRef.current = null;
     setCurrentIndex(index);
+    if (roomRoleRef.current === "host") sendRef.current({ type: "skip", index });
   }, []);
 
   const activePlaylistSharedRef = useRef(false);
 
   const cycleLoop = useCallback(() => {
+    if (roomRoleRef.current === "guest") return;
     setLoopModeState((mode) => {
-      const next = LOOP_CYCLE[mode];
+      const nextMode = LOOP_CYCLE[mode];
       if (activePlaylistIdRef.current && !activePlaylistSharedRef.current) {
-        api.updatePlaylist(activePlaylistIdRef.current, { loop: next }).catch(() => {});
+        api.updatePlaylist(activePlaylistIdRef.current, { loop: nextMode }).catch(() => {});
       }
-      return next;
+      if (roomRoleRef.current === "host") sendRef.current({ type: "loop", loop: nextMode });
+      return nextMode;
     });
   }, []);
 
@@ -316,10 +442,17 @@ export function PlayerProvider({ children }) {
     setLoopModeState(mode);
   }, []);
 
-  const toggleQueue = useCallback(() => setQueueOpen((v) => !v), []);
+  const toggleQueue = useCallback(() => {
+    if (roomRoleRef.current === "guest") return;
+    setQueueOpen((v) => !v);
+  }, []);
 
   // Never two sounds at once: opening it stops the MP3.
   const dockYoutube = useCallback((videoId, title = "") => {
+    if (roomRoleRef.current) {
+      setPlayerError("Leave the room before playing a video.");
+      return;
+    }
     const audio = audioRef.current;
     if (audio) audio.pause();
     setYtModal({ open: true, videoId, title });
@@ -337,30 +470,365 @@ export function PlayerProvider({ children }) {
   }, []);
 
   const removeFromQueue = useCallback((index) => {
-    setQueue((q) => {
-      const copy = q.slice();
-      copy.splice(index, 1);
-      return copy;
-    });
-    setCurrentIndex((idx) => {
-      if (index < idx) return idx - 1;
-      return idx;
-    });
+    if (roomRoleRef.current === "guest") return;
+    const copy = queueRef.current.slice();
+    if (index < 0 || index >= copy.length) return;
+    const removedCurrent = index === currentIndexRef.current;
+    copy.splice(index, 1);
+    let idx = currentIndexRef.current;
+    if (index < idx) idx -= 1;
+    if (idx >= copy.length) idx = copy.length - 1;
+    setQueue(copy);
+    setCurrentIndex(copy.length === 0 ? -1 : idx);
+    if (roomRoleRef.current === "host") {
+      sendRef.current({
+        type: "queue",
+        song_ids: copy.map((item) => item && item.id).filter(Boolean),
+        index: Math.max(0, idx),
+        restart: removedCurrent,
+      });
+    }
   }, []);
 
   const reorderQueue = useCallback((from, to) => {
-    setQueue((q) => {
-      const copy = q.slice();
-      const [item] = copy.splice(from, 1);
-      copy.splice(to, 0, item);
-      return copy;
+    if (roomRoleRef.current === "guest") return;
+    const copy = queueRef.current.slice();
+    if (from === to || from < 0 || to < 0 || from >= copy.length || to >= copy.length) return;
+    const [item] = copy.splice(from, 1);
+    copy.splice(to, 0, item);
+    let idx = currentIndexRef.current;
+    if (from === idx) idx = to;
+    else if (from < idx && to >= idx) idx -= 1;
+    else if (from > idx && to <= idx) idx += 1;
+    setQueue(copy);
+    setCurrentIndex(idx);
+    if (roomRoleRef.current === "host") {
+      sendRef.current({
+        type: "queue",
+        song_ids: copy.map((entry) => entry && entry.id).filter(Boolean),
+        index: idx,
+        restart: false,
+      });
+    }
+  }, []);
+
+  // The socket and the clock live for the whole session, not for the room
+  // page — leaving that page must not stop the song.
+  sendRef.current = (msg) => {
+    const sock = socketRef.current;
+    if (sock?.handle.send(msg)) return;
+    const code = wantRef.current;
+    if (!code || roomRoleRef.current !== "host") return;
+    api
+      .roomCommand(code, msg)
+      .then((data) => {
+        if (data?.room) applyRef.current(data.room);
+      })
+      .catch((err) => setPlayerError(err.message));
+  };
+
+  function noteClock(incoming) {
+    const serverNow = Date.parse(incoming.server_now);
+    clockRef.current = {
+      playing: Boolean(incoming.playing),
+      positionMs: incoming.position_ms || 0,
+      anchored: Date.parse(incoming.anchored_at || incoming.server_now),
+      offset: Number.isFinite(serverNow) ? serverNow - Date.now() : 0,
+    };
+  }
+
+  function expectedFromClock() {
+    const clock = clockRef.current;
+    if (!clock) return 0;
+    const base = clock.positionMs / 1000;
+    if (!clock.playing || !Number.isFinite(clock.anchored)) return Math.max(0, base);
+    const serverTime = Date.now() + clock.offset;
+    return Math.max(0, base + (serverTime - clock.anchored) / 1000);
+  }
+
+  function clearGuestSession() {
+    const session = navigator.mediaSession;
+    if (!session) return;
+    try {
+      session.metadata = null;
+      session.playbackState = "none";
+    } catch {
+      // A browser without the session API has nothing to clear.
+    }
+    for (const name of [
+      "play",
+      "pause",
+      "stop",
+      "seekbackward",
+      "seekforward",
+      "seekto",
+      "previoustrack",
+      "nexttrack",
+    ]) {
+      try {
+        session.setActionHandler(name, null);
+      } catch {
+        // This action isn't one the browser offers.
+      }
+    }
+  }
+
+  function syncGuestSession(song, hostPlaying) {
+    const session = navigator.mediaSession;
+    if (!session) return;
+    try {
+      session.metadata = new MediaMetadata({
+        title: songTitle(song) || "Reelody",
+        artist: song?.artist || song?.uploader || "",
+      });
+      session.playbackState = hostPlaying ? "playing" : "paused";
+    } catch {
+      // Metadata is cosmetic. The handlers below are the part that matters.
+    }
+    // Every control on the notification and the keyboard reports here, and
+    // each one is answered by going back to where the host is.
+    const obeyHost = () => {
+      resumeGuestRef.current("seek");
+      resumeGuestRef.current("pause");
+    };
+    for (const name of [
+      "play",
+      "pause",
+      "stop",
+      "seekbackward",
+      "seekforward",
+      "seekto",
+      "previoustrack",
+      "nexttrack",
+    ]) {
+      try {
+        session.setActionHandler(name, obeyHost);
+      } catch {
+        // This action isn't one the browser offers.
+      }
+    }
+  }
+
+  // A guest's headphone button, laptop media key, or phone notification all
+  // land here. None of them are allowed to move the song off the host's clock.
+  resumeGuestRef.current = (why) => {
+    if (roomRoleRef.current !== "guest" || !roomPlayingRef.current) return;
+    const audio = audioRef.current;
+    if (!audio || (audio.src || "").startsWith("data:")) return;
+    if (why === "seek") {
+      const expected = expectedFromClock();
+      if (Math.abs((audio.currentTime || 0) - expected) > 0.4) audio.currentTime = expected;
+      return;
+    }
+    if (!audio.paused) return;
+    // play() inside the pause event itself is ignored, including by a media
+    // key and the phone notification. It has to run after that event ends.
+    clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      if (roomRoleRef.current !== "guest" || !roomPlayingRef.current) return;
+      const el = audioRef.current;
+      if (!el || !el.paused || (el.src || "").startsWith("data:")) return;
+      el.play().catch(() => {});
+    }, 0);
+  };
+
+  closeSocketRef.current = () => {
+    const existing = socketRef.current;
+    socketRef.current = null;
+    if (!existing) return;
+    if (existing.ping) clearInterval(existing.ping);
+    existing.handle.close();
+  };
+
+  stopRef.current = (clearAudio) => {
+    wantRef.current = null;
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+    closeSocketRef.current();
+    roomRoleRef.current = null;
+    roomPlayingRef.current = false;
+    clockRef.current = null;
+    pendingSeekRef.current = null;
+    clearGuestSession();
+    setRoom(null);
+    if (!clearAudio) return;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    lastPlayedRef.current = null;
+    setQueue([]);
+    setCurrentIndex(-1);
+    setPlaying(false);
+    setCurrentTime(0);
+  };
+
+  applyRef.current = (incoming) => {
+    if (!incoming) return;
+    if (incoming.code && wantRef.current && incoming.code !== wantRef.current) return;
+    if (incoming.status === "ended" || incoming.status === "denied" || incoming.status === "kicked") {
+      const message =
+        incoming.status === "ended" ? "That room has ended." : "You can't join this room.";
+      stopRef.current(true);
+      setPlayerError(message);
+      return;
+    }
+    if (incoming.status === "pending" || incoming.status === "joinable") {
+      roomRoleRef.current = null;
+      roomPlayingRef.current = false;
+      setRoom(incoming);
+      return;
+    }
+    if (incoming.status !== "open") return;
+    noteClock(incoming);
+    const role = incoming.role === "host" ? "host" : "guest";
+    roomRoleRef.current = role;
+    if (role === "guest") setQueueOpen(false);
+    // Set before any play() or pause() below, so a pause we asked for is not
+    // treated as the guest's media key and started again.
+    roomPlayingRef.current = Boolean(incoming.playing);
+    setRoom(incoming);
+    if (incoming.loop) setLoopModeState(incoming.loop);
+
+    const songs = incoming.queue || [];
+    const idx = songs.length ? Math.max(0, Math.min(incoming.index || 0, songs.length - 1)) : -1;
+    const song = idx >= 0 ? songs[idx] : null;
+    const audio = audioRef.current;
+    if (!song) {
+      pendingSeekRef.current = null;
+      if (audio && !audio.paused) audio.pause();
+      setQueue([]);
+      setCurrentIndex(-1);
+      return;
+    }
+    const expected = expectedFromClock();
+    const same =
+      audio &&
+      trackLoaded(audio, song) &&
+      currentIndexRef.current === idx &&
+      sameIds(queueRef.current, songs);
+    if (same) {
+      if (Math.abs((audio.currentTime || 0) - expected) > 0.4) {
+        audio.currentTime = expected;
+        setCurrentTime(expected);
+      }
+      if (roomPlayingRef.current && audio.paused) {
+        audio.play().catch(() => {});
+      } else if (!roomPlayingRef.current && !audio.paused) {
+        audio.pause();
+      }
+    } else {
+      pendingSeekRef.current = expected;
+      setQueue(songs);
+      setCurrentIndex(idx);
+    }
+    if (role === "guest") syncGuestSession(song, Boolean(incoming.playing));
+    else clearGuestSession();
+  };
+
+  openSocketRef.current = (norm, attempt) => {
+    if (wantRef.current !== norm) return;
+    const handle = api.openRoomSocket(norm, {
+      onMessage(msg) {
+        if (wantRef.current !== norm) return;
+        if (msg.type === "ping") {
+          handle.send({ type: "pong" });
+          if (msg.server_now && clockRef.current) {
+            const serverNow = Date.parse(msg.server_now);
+            if (Number.isFinite(serverNow)) clockRef.current.offset = serverNow - Date.now();
+          }
+          return;
+        }
+        if (msg.type === "error" && msg.error) setPlayerError(msg.error);
+        if (msg.type === "state" && msg.room) applyRef.current(msg.room);
+      },
+      onClose() {
+        if (socketRef.current?.handle === handle) {
+          if (socketRef.current.ping) clearInterval(socketRef.current.ping);
+          socketRef.current = null;
+        }
+        if (wantRef.current !== norm) return;
+        const wait = Math.min(8000, 1000 * Math.max(1, attempt + 1));
+        reconnectRef.current = setTimeout(() => openSocketRef.current(norm, attempt + 1), wait);
+      },
     });
-    setCurrentIndex((idx) => {
-      if (from === idx) return to;
-      if (from < idx && to >= idx) return idx - 1;
-      if (from > idx && to <= idx) return idx + 1;
-      return idx;
-    });
+    const ping = setInterval(() => handle.send({ type: "ping" }), 20000);
+    socketRef.current = { code: norm, handle, ping };
+  };
+
+  const watchRoom = useCallback((code) => {
+    const norm = String(code || "")
+      .replace(/[^0-9a-z]/gi, "")
+      .toUpperCase();
+    if (!norm) return;
+    wantRef.current = norm;
+    if (socketRef.current?.code === norm) return;
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+    closeSocketRef.current();
+    openSocketRef.current(norm, 0);
+  }, []);
+
+  // Called from the join click, still inside that gesture, so the song the
+  // host starts afterwards is allowed to play with no second tap.
+  const primeRoomAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    // A song already running is the unlock. Replacing it with silence would
+    // cut the host off in the moment someone joins.
+    if (audio.src && !audio.src.startsWith("data:") && !audio.paused) return;
+    audio.src = SILENCE;
+    audio.play().catch(() => {});
+  }, []);
+
+  const leaveRoom = useCallback(async () => {
+    const code = wantRef.current;
+    if (code) await api.leaveRoom(code);
+    stopRef.current(true);
+  }, []);
+
+  useEffect(() => {
+    function onMediaKey(event) {
+      if (roomRoleRef.current !== "guest") return;
+      const blocked = [
+        "MediaPlayPause",
+        "MediaStop",
+        "MediaTrackNext",
+        "MediaTrackPrevious",
+        "MediaRewind",
+        "MediaFastForward",
+      ];
+      if (!blocked.includes(event.key)) return;
+      event.preventDefault();
+      resumeGuestRef.current("pause");
+    }
+    window.addEventListener("keydown", onMediaKey);
+    return () => window.removeEventListener("keydown", onMediaKey);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const audio = audioRef.current;
+      const clock = clockRef.current;
+      const role = roomRoleRef.current;
+      if (!audio || !clock?.playing || (role !== "guest" && role !== "host")) return;
+      if (roomRoleRef.current === "guest" && audio.paused) {
+        // The first play() can be refused if it lands in the same moment as a
+        // pause from a media key. Keep asking while the host is still playing.
+        audio.play().catch(() => {});
+        return;
+      }
+      if (audio.paused) return;
+      const expected = expectedFromClock();
+      if (Math.abs(audio.currentTime - expected) > 0.4) audio.currentTime = expected;
+    }, 2000);
+    return () => clearInterval(id);
   }, []);
 
   const value = useMemo(
@@ -377,6 +845,10 @@ export function PlayerProvider({ children }) {
       queueOpen,
       ytModal,
       playerError,
+      room,
+      watchRoom,
+      primeRoomAudio,
+      leaveRoom,
       playQueue,
       playSongNow,
       playNext,
@@ -410,6 +882,10 @@ export function PlayerProvider({ children }) {
       queueOpen,
       ytModal,
       playerError,
+      room,
+      watchRoom,
+      primeRoomAudio,
+      leaveRoom,
       playQueue,
       playSongNow,
       playNext,
@@ -439,4 +915,24 @@ export function usePlayer() {
   const ctx = useContext(PlayerContext);
   if (!ctx) throw new Error("usePlayer must be used within a PlayerProvider");
   return ctx;
+}
+
+function positionMs(audioOrSeconds) {
+  const seconds =
+    typeof audioOrSeconds === "number" ? audioOrSeconds : audioOrSeconds?.currentTime || 0;
+  return Math.max(0, Math.round(seconds * 1000));
+}
+
+function trackLoaded(audio, song) {
+  const src = audio.currentSrc || audio.src || "";
+  if (!src || !song?.id) return false;
+  return src.includes(`/songs/${song.id}/`) || src.includes(`song=${song.id}`);
+}
+
+function sameIds(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i]?.id !== b[i]?.id) return false;
+  }
+  return true;
 }

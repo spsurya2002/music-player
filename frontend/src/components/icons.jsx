@@ -434,6 +434,14 @@ export const DocIcon = (p) => (
 
 // The rail row. A sleeve with a disc half out of it — liner notes are the
 // booklet that comes with the record, which is what the page is.
+export const RoomIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 10.5 12 4l8 6.5" />
+    <path d="M6 9.5V20h12V9.5" />
+    <path d="M10 20v-5h4v5" />
+  </Svg>
+);
+
 export const SleeveIcon = (p) => (
   <Svg {...p}>
     <rect x="3" y="4" width="14" height="16" rx="1.5" />

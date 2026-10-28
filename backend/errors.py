@@ -61,6 +61,22 @@ NOT_SHARED = "That playlist isn't shared."
 MISSING_SHARED_SONG = "That song isn't in a shared playlist any more."
 
 
+# --- listening rooms -------------------------------------------------------
+
+MISSING_ROOM = "That room doesn't exist."
+ROOM_ENDED = "That room has ended."
+ROOM_DENIED = "You can't join this room."
+ROOM_JOIN_FIRST = "Ask to join this room first."
+ROOM_HOSTING = "End the room you're hosting before joining another."
+ROOM_NOT_HOST = "Only the host can do that."
+ROOM_BAD_CODE = "That room code doesn't look right."
+ROOM_LIBRARY = "Only songs from your library can play in a room."
+ROOM_TOO_MANY = "That's more songs than a room can hold."
+ROOM_NO_COMMAND = "That isn't a room command."
+ROOM_JOIN_FAST = "That's a lot of rooms at once — wait a minute and try again."
+ROOM_SONG_GONE = "That song isn't in this room."
+
+
 # --- auth ------------------------------------------------------------------
 
 NOT_SIGNED_IN = "Sign in to continue."

@@ -30,6 +30,7 @@ from backend.routers import (
     limits,
     lyrics,
     playlists,
+    rooms,
     shared,
     songs,
 )
@@ -38,6 +39,7 @@ from backend.services import cookies as cookies_service
 from backend.services import ingest as ingest_service
 from backend.services import lyrics_jobs
 from backend.services import quota
+from backend.services import rooms as rooms_service
 
 app = FastAPI(title="Reelody API")
 
@@ -55,6 +57,7 @@ app.include_router(identify.router, prefix="/api")
 app.include_router(songs.router, prefix="/api")
 app.include_router(lyrics.router, prefix="/api")
 app.include_router(playlists.router, prefix="/api")
+app.include_router(rooms.router, prefix="/api")
 app.include_router(shared.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
 app.include_router(limits.router, prefix="/api")
@@ -116,12 +119,17 @@ async def on_startup():
     ingest_service.start()
     await lyrics_jobs.requeue_stale()
     lyrics_jobs.start()
+    # A restart drops every socket. Give the host a minute to open the room
+    # again before the sweep ends it.
+    await rooms_service.arm_grace_on_boot()
+    rooms_service.start()
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     await ingest_service.stop()
     await lyrics_jobs.stop()
+    await rooms_service.stop()
     await db.close()
 
 

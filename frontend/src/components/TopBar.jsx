@@ -14,6 +14,7 @@ import {
   FeedbackIcon,
   GaugeIcon,
   MenuIcon,
+  RoomIcon,
   SearchIcon,
   ShieldIcon,
   SignOutIcon,
@@ -113,6 +114,12 @@ function AccountMenu({ user, isAdmin, quota, badges, about, onSignOut, onFeedbac
           <Link to="/account" onClick={close} role="menuitem">
             <UserIcon size={16} />
             Account
+          </Link>
+          {/* Also a rail row, which phones don't have. A room is a place, so
+              it stays out of the five tabs and lives here instead. */}
+          <Link to="/rooms" onClick={close} role="menuitem">
+            <RoomIcon size={16} />
+            Rooms
           </Link>
           {/* Also in the rail, which is gone under 760px — and this menu is
               not. Same reason Feedback is listed twice below. */}

@@ -35,13 +35,15 @@ requests_col = None
 feedback_col = None
 contact_col = None
 settings_col = None
+rooms_col = None
+room_members_col = None
 storage: Storage | None = None
 
 
 def connect() -> None:
     global client, db, songs_col, playlists_col, users_col, sessions_col, ingest_col, storage
     global holds_col, requests_col, lyrics_col, lyrics_sets_col, feedback_col
-    global contact_col, settings_col
+    global contact_col, settings_col, rooms_col, room_members_col
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
     songs_col = db["songs"]
@@ -59,6 +61,8 @@ def connect() -> None:
     # config file: these are things the admin changes at runtime, from a
     # form, on an instance nobody is going to redeploy to fix a typo.
     settings_col = db["settings"]
+    rooms_col = db["rooms"]
+    room_members_col = db["room_members"]
     storage = Storage(db)
 
 
@@ -209,6 +213,20 @@ async def _ensure_contact_indexes() -> None:
     await contact_col.create_index([("created_at", -1)])
 
 
+async def _ensure_room_indexes() -> None:
+    """Listening rooms (backend/services/rooms.py).
+
+    `code` stays unique after a room ends, so an old link can't be reissued to
+    a different host. Membership is one row per person per room — asking again
+    updates that row rather than stacking a second request.
+    """
+    await rooms_col.create_index("code", unique=True)
+    await rooms_col.create_index([("host_id", 1), ("status", 1)])
+    await rooms_col.create_index("host_grace_until")
+    await room_members_col.create_index([("room_id", 1), ("user_id", 1)], unique=True)
+    await room_members_col.create_index([("user_id", 1), ("status", 1)])
+
+
 async def create_indexes() -> None:
     await _ensure_song_indexes()
     await _ensure_playlist_indexes()
@@ -219,6 +237,7 @@ async def create_indexes() -> None:
     await _ensure_lyrics_set_indexes()
     await _ensure_feedback_indexes()
     await _ensure_contact_indexes()
+    await _ensure_room_indexes()
     await _drop_legacy_indexes()
 
 

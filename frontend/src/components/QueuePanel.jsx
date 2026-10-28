@@ -6,7 +6,9 @@ import "./QueuePanel.css";
 import Thumb from "./Thumb";
 
 export default function QueuePanel() {
-  const { queue, currentIndex, playing, jumpTo, reorderQueue, toggleQueue, removeFromQueue } = usePlayer();
+  const { queue, currentIndex, playing, jumpTo, reorderQueue, toggleQueue, removeFromQueue, room } =
+    usePlayer();
+  const guest = room?.status === "open" && room.role === "guest";
   const [dragIndex, setDragIndex] = useState(null);
   const overIndex = useRef(null);
 
@@ -43,8 +45,10 @@ export default function QueuePanel() {
           <div
             key={`${song.id}-${i}`}
             className={"queue-item" + (i === currentIndex ? " active" : "")}
-            draggable
-            onDragStart={() => setDragIndex(i)}
+            draggable={!guest}
+            onDragStart={() => {
+              if (!guest) setDragIndex(i);
+            }}
             onDragOver={(e) => {
               e.preventDefault();
               overIndex.current = i;
@@ -55,7 +59,12 @@ export default function QueuePanel() {
             <span className="queue-grip">
               <GripIcon size={15} />
             </span>
-            <button type="button" className="queue-item-main" onClick={() => jumpTo(i)}>
+            <button
+              type="button"
+              className="queue-item-main"
+              onClick={() => jumpTo(i)}
+              disabled={guest}
+            >
               <Thumb src={song.thumbnail} iconSize={16} />
               <span className="queue-item-text">
                 <span className="queue-item-title">{songTitle(song)}</span>
@@ -64,9 +73,11 @@ export default function QueuePanel() {
               {i === currentIndex && playing ? <PauseIcon size={14} /> : i === currentIndex ? <PlayIcon size={14} /> : null}
             </button>
             <span className="queue-item-duration">{fmtDur(song.duration)}</span>
-            <button type="button" className="icon-btn" onClick={() => removeFromQueue(i)} aria-label="Remove from queue">
-              <CloseIcon size={14} />
-            </button>
+            {!guest && (
+              <button type="button" className="icon-btn" onClick={() => removeFromQueue(i)} aria-label="Remove from queue">
+                <CloseIcon size={14} />
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -26,6 +26,34 @@
   justify-content: center;
 }
 
+.player-room {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.player-room a {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.player-bar .icon-btn:disabled,
+.player-bar .player-play:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .player-left {
   display: flex;
   align-items: center;

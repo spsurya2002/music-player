@@ -11,6 +11,7 @@ import {
   LinkIcon,
   LyricsIcon,
   PlaylistIcon,
+  RoomIcon,
   SleeveIcon,
 } from "./icons";
 import "./Sidebar.css";
@@ -134,6 +135,12 @@ export default function Sidebar({ mini, about }) {
               to="/imports"
               icon={<InboxIcon size={22} />}
               label="Imports"
+              mini={mini}
+            />
+            <RailLink
+              to="/rooms"
+              icon={<RoomIcon size={22} />}
+              label="Rooms"
               mini={mini}
             />
           </div>

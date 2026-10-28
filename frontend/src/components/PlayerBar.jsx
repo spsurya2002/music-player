@@ -31,6 +31,7 @@ export default function PlayerBar() {
     toggleQueue,
     queueOpen,
     playerError,
+    room,
   } = usePlayer();
   // Only to word the empty state: signed out there is no library to point at.
   const { user } = useAuth();
@@ -83,16 +84,26 @@ export default function PlayerBar() {
     };
   }, [dragging, timeAt, seek]);
 
+  const inRoom = room?.status === "open";
+  const guest = inRoom && room.role === "guest";
+
+  // The guest's screen is the room page. Nothing about the player bar — the
+  // queue, the seek, the buttons — belongs to them.
+  if (guest) return null;
+
   if (!currentSong) {
     // A visitor has no library to pick from, and telling them to use one is the
     // app describing a room they can't see. What they can play is the shared
     // feed, which is the page they are already on.
     return (
       <div className="player-bar player-bar-empty">
+        {inRoom && <RoomLine room={room} />}
         <span>
-          {user
-            ? "Nothing playing — pick a song from your library."
-            : "Nothing playing — press play on anything in the shared playlists."}
+          {inRoom
+            ? "Nothing playing — pick a song and the room hears it."
+            : user
+              ? "Nothing playing — pick a song from your library."
+              : "Nothing playing — press play on anything in the shared playlists."}
         </span>
       </div>
     );
@@ -122,16 +133,29 @@ export default function PlayerBar() {
 
   const LoopIcon = loopMode === "one" ? LoopOneIcon : LoopOffIcon;
 
+  const songLink = guest ? null : `/songs/${currentSong.id}`;
+
   return (
     <div className="player-bar">
+      {inRoom && <RoomLine room={room} />}
       <div className="player-left">
-        <Link to={`/songs/${currentSong.id}`} className="player-art-link">
-          <Thumb className="player-art" src={currentSong.thumbnail} iconSize={22} />
-        </Link>
-        <div className="player-meta">
-          <Link to={`/songs/${currentSong.id}`} className="player-title">
-            {songTitle(currentSong)}
+        {songLink ? (
+          <Link to={songLink} className="player-art-link">
+            <Thumb className="player-art" src={currentSong.thumbnail} iconSize={22} />
           </Link>
+        ) : (
+          <span className="player-art-link">
+            <Thumb className="player-art" src={currentSong.thumbnail} iconSize={22} />
+          </span>
+        )}
+        <div className="player-meta">
+          {songLink ? (
+            <Link to={songLink} className="player-title">
+              {songTitle(currentSong)}
+            </Link>
+          ) : (
+            <span className="player-title">{songTitle(currentSong)}</span>
+          )}
           <div className="player-artist" style={playerError ? { color: "var(--err)" } : undefined}>
             {playerError || currentSong.artist || currentSong.uploader}
           </div>
@@ -140,7 +164,7 @@ export default function PlayerBar() {
 
       <div className="player-center">
         <div className="player-controls">
-          <button type="button" className="icon-btn" onClick={prev} aria-label="Previous">
+          <button type="button" className="icon-btn" onClick={prev} aria-label="Previous" disabled={guest}>
             <PrevIcon size={18} />
           </button>
           {/* A nudge, not a skip: the thing you reach for when a line went by
@@ -152,11 +176,17 @@ export default function PlayerBar() {
             onClick={() => seekBy(-SKIP)}
             aria-label={`Back ${SKIP} seconds`}
             title={`Back ${SKIP} seconds`}
+            disabled={guest}
           >
             <Back3Icon size={18} />
             <span>{SKIP}</span>
           </button>
-          <button type="button" className="player-play" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
+          <button
+            type="button"
+            className="player-play"
+            onClick={togglePlay}
+            aria-label={playing ? "Pause" : "Play"}
+          >
             {playing ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
           </button>
           <button
@@ -165,11 +195,12 @@ export default function PlayerBar() {
             onClick={() => seekBy(SKIP)}
             aria-label={`Forward ${SKIP} seconds`}
             title={`Forward ${SKIP} seconds`}
+            disabled={guest}
           >
             <Forward3Icon size={18} />
             <span>{SKIP}</span>
           </button>
-          <button type="button" className="icon-btn" onClick={next} aria-label="Next">
+          <button type="button" className="icon-btn" onClick={next} aria-label="Next" disabled={guest}>
             <NextIcon size={18} />
           </button>
         </div>
@@ -181,10 +212,11 @@ export default function PlayerBar() {
             ref={seekRef}
             className={"player-seek" + (dragging ? " dragging" : "")}
             onPointerDown={(e) => {
+              if (guest) return;
               setScrub(timeAt(e.clientX));
               e.preventDefault();
             }}
-            onKeyDown={onSeekKey}
+            onKeyDown={guest ? undefined : onSeekKey}
             data-arrow-keys
             role="slider"
             tabIndex={0}
@@ -208,6 +240,7 @@ export default function PlayerBar() {
           onClick={cycleLoop}
           aria-label={`Loop: ${loopMode}`}
           title={`Loop: ${loopMode}`}
+          disabled={guest}
         >
           <LoopIcon size={18} />
         </button>
@@ -234,6 +267,23 @@ export default function PlayerBar() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoomLine({ room }) {
+  const name = room.host?.given_name || room.host?.name || "The host";
+  const count = room.listeners || 1;
+  return (
+    <div className="player-room">
+      <span>
+        {room.role === "host" ? "You're hosting" : `${name} is hosting`}
+        {" · "}
+        {count} {count === 1 ? "person" : "people"}
+        {" · "}
+        {room.code}
+      </span>
+      <Link to={`/rooms/${room.code}`}>Room</Link>
     </div>
   );
 }

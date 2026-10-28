@@ -20,6 +20,12 @@
   margin-left: var(--sidebar-mini);
 }
 
+/* A guest follows the host and has no bar of their own, so the page should
+   not keep a blank strip clear for one. */
+.shell.guest-room {
+  --player-h: 0px;
+}
+
 @media (max-width: 760px) {
   /* The rail is gone and MobileTabs sits at the bottom, so the content clears
      the top bar above and the tabs plus the player below.

@@ -258,6 +258,25 @@ class AboutBody(BaseModel):
     contact_sent: str = Field(default="", max_length=300)
 
 
+class JoinRoomRequest(BaseModel):
+    code: str = ""
+
+
+class RoomDecisionRequest(BaseModel):
+    allow: bool = False
+
+
+class RoomCommandRequest(BaseModel):
+    """What the host's player reports. Guests never send one of these."""
+
+    type: Literal["play", "pause", "seek", "queue", "skip", "loop", "ended"]
+    position_ms: int = Field(default=0, ge=0, le=86_400_000)
+    song_ids: list[str] = Field(default_factory=list, max_length=500)
+    index: int = Field(default=0, ge=0)
+    loop: Literal["off", "all", "one"] | None = None
+    restart: bool = False
+
+
 class ContactRequest(BaseModel):
     """Someone writing in from /about — possibly with no account at all.
 

@@ -14,6 +14,9 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        // The room socket. Without this the dev server answers the upgrade
+        // itself and the player never hears the host.
+        ws: true,
       },
     },
   },

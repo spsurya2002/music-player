@@ -1,0 +1,297 @@
+.room-actions {
+  margin-bottom: 22px;
+}
+
+.room-join {
+  max-width: 420px;
+}
+
+.room-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.room-join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.room-join-row input {
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.room-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.room-code {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.room-block {
+  margin: 8px 0 22px;
+}
+
+.room-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.room-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-person-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.room-person-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.room-tag {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.room-back {
+  margin-top: 22px;
+}
+
+.room-back a {
+  color: var(--muted);
+}
+
+.room-stage {
+  position: fixed;
+  z-index: 80;
+  left: var(--sidebar);
+  right: 0;
+  top: var(--topbar-h);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 22px;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.shell.rail-mini .room-stage {
+  left: var(--sidebar-mini);
+}
+
+.room-stage .btn,
+.room-stage a {
+  pointer-events: auto;
+}
+
+.room-stage .sub {
+  margin: 0;
+}
+
+.room-now {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.room-now-title {
+  max-width: 460px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.room-now-by {
+  max-width: 460px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.room-disc {
+  position: relative;
+  width: 196px;
+  height: 196px;
+  display: grid;
+  place-items: center;
+}
+
+.room-cover,
+.room-disc .thumb-empty {
+  position: relative;
+  z-index: 1;
+  width: 148px;
+  height: 148px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--placeholder);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.room-disc .thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.room-disc-ring {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(214, 51, 108, 0.4);
+  opacity: 0;
+}
+
+.room-disc.on .room-disc-ring {
+  animation: room-pulse 2.6s ease-out infinite;
+}
+
+.room-disc.on .room-disc-ring-2 {
+  animation-delay: 1.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-disc.on .room-disc-ring,
+  .now-playing.on i {
+    animation: none;
+  }
+
+  .room-disc.on .room-disc-ring {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes room-pulse {
+  0% {
+    transform: scale(0.62);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.room-host {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 320px;
+  padding: 10px 16px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  text-align: left;
+}
+
+.room-host-text {
+  min-width: 0;
+}
+
+.room-host-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.room-host-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.now-playing {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  color: var(--accent);
+}
+
+.now-playing i {
+  display: block;
+  width: 4px;
+  height: 28px;
+  border-radius: 3px;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: scaleY(0.35);
+}
+
+.now-playing.on i {
+  animation: now-playing 0.9s ease-in-out infinite;
+}
+
+.now-playing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.now-playing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes now-playing {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (max-width: 760px) {
+  .room-stage,
+  .shell.rail-mini .room-stage {
+    left: 0;
+    bottom: 56px;
+  }
+
+  .room-disc {
+    width: 168px;
+    height: 168px;
+  }
+
+  .room-cover,
+  .room-disc .thumb-empty {
+    width: 124px;
+    height: 124px;
+  }
+
+  .room-join-row {
+    flex-direction: column;
+  }
+
+  .room-person-actions {
+    flex-direction: column;
+  }
+}

@@ -64,6 +64,31 @@ def owner_to_dict(doc: dict | None) -> dict | None:
     }
 
 
+def room_song_to_dict(doc: dict, code: str) -> dict:
+    """A song the room is playing, heard by people who don't own it.
+
+    The audio URL is the room route, which re-checks membership on every
+    request. `room` tells the player not to count a guest's listen as the
+    owner's, and not to send them to a library page that would 404.
+    """
+    sid = str(doc["_id"])
+    out = song_to_dict(doc)
+    out["audio_url"] = f"/api/rooms/{code}/audio?song={sid}"
+    out["room"] = True
+    out["playlist_ids"] = []
+    return out
+
+
+def person_to_dict(doc: dict | None, status: str | None = None) -> dict | None:
+    """Name and picture for someone in a room. Never the email."""
+    base = owner_to_dict(doc)
+    if base is None:
+        return None
+    if status is not None:
+        base["status"] = status
+    return base
+
+
 def shared_song_to_dict(doc: dict) -> dict:
     """A song seen inside somebody else's shared playlist.
 
