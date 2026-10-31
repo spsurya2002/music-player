@@ -3,15 +3,17 @@ POST /api/admin/requests/{id}/resolve, GET /api/admin/users,
 PATCH /api/admin/users/{id}/limits — the reading end of feedback,
 GET /api/admin/feedback and DELETE /api/admin/feedback/{id}, the About page's own
 content (GET/PUT /api/admin/about, POST /api/admin/about/reset), and the
-messages it collects (GET /api/admin/contact, DELETE /api/admin/contact/{id}).
+messages it collects (GET /api/admin/contact, DELETE /api/admin/contact/{id}),
+and notes from the support page (GET /api/admin/support,
+DELETE /api/admin/support/{id}).
 
 Every route takes AdminUser, which answers anyone else with the same 404 as a
 path that doesn't exist. Admins are named in config (ADMIN_EMAILS), not stored,
 so there is no route here that makes somebody one.
 
 This is the one place besides routers/shared.py that reads rows belonging to
-other people — and it reads accounts, requests, feedback and the About page's
-postbag only, never a library.
+other people — and it reads accounts, requests, feedback, support notes and
+the About page's postbag only, never a library.
 """
 
 import re
@@ -29,6 +31,7 @@ from backend.serializers import (
     iso,
     limit_request_to_dict,
     now,
+    support_note_to_dict,
 )
 from backend.services import about as about_service
 from backend.services import quota
@@ -396,4 +399,40 @@ async def delete_contact(message_id: str, admin: AdminUser):
     result = await db.contact_col.delete_one({"_id": oid}) if oid else None
     if not result or result.deleted_count == 0:
         raise errors.AppError(errors.MISSING_MESSAGE, 404)
+    return {"deleted": True}
+
+
+# --- notes from the support page -------------------------------------------
+
+
+@router.get("/support")
+async def list_support_notes(admin: AdminUser, limit: int = 200):
+    """Notes left on /support, newest first.
+
+    A payment never appears here. UPI and Buy Me a Coffee don't report back,
+    so this list is only the words someone chose to leave, with an account
+    attached when they were signed in and nothing when they weren't.
+    """
+    cursor = db.support_notes_col.find().sort("created_at", -1).limit(max(1, min(limit, 500)))
+    rows = [d async for d in cursor]
+    users = await _accounts_by_id(r["user_id"] for r in rows if r.get("user_id"))
+    return {
+        "notes": [
+            {
+                **support_note_to_dict(r),
+                "user": _account(users.get(r["user_id"])) if r.get("user_id") else None,
+                "signed_in": bool(r.get("user_id")),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.delete("/support/{note_id}")
+async def delete_support_note(note_id: str, admin: AdminUser):
+    """Spam, and notes sent to the wrong place. There is no reply from here."""
+    oid = to_object_id(note_id)
+    result = await db.support_notes_col.delete_one({"_id": oid}) if oid else None
+    if not result or result.deleted_count == 0:
+        raise errors.AppError(errors.MISSING_SUPPORT_NOTE, 404)
     return {"deleted": True}

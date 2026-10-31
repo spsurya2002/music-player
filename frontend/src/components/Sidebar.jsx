@@ -63,8 +63,8 @@ export default function Sidebar({ mini, about }) {
         <RailLink
           to="/add/reel"
           icon={<LinkIcon size={22} />}
-          label="Add a reel"
-          miniLabel="Reel"
+          label="Add a link"
+          miniLabel="Link"
           mini={mini}
         />
         <RailLink

@@ -22,7 +22,7 @@ export default function AddTabs() {
     <div className="mode-tabs add-tabs" role="tablist">
       <NavLink to="/add/reel" className={cls} role="tab">
         <LinkIcon size={15} />
-        Add a reel
+        Add a link
       </NavLink>
       <NavLink to="/add/file" className={cls} role="tab">
         <FileAudioIcon size={15} />

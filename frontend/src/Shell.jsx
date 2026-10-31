@@ -31,6 +31,7 @@ import ShareTargetView from "./views/ShareTargetView";
 import AccountView from "./views/AccountView";
 import PlanView from "./views/PlanView";
 import AdminView from "./views/AdminView";
+import SupportView from "./views/SupportView";
 import AboutView from "./views/AboutView";
 import RoomsView from "./views/RoomsView";
 import RoomView from "./views/RoomView";
@@ -100,8 +101,8 @@ export default function Shell() {
             element={
               <Gated
                 icon={<PlusIcon size={34} />}
-                title="Turn a reel into a song you keep"
-                line="Paste a link and Reelody pulls out the audio, works out what the song is and files it in your library. Sign in and that library is yours."
+                title="Turn a link into a song you keep"
+                line="Paste an Instagram, YouTube, or Spotify link and Reelody pulls out the audio, works out what the song is and files it in your library. Sign in and that library is yours."
               >
                 <SearchView />
               </Gated>
@@ -265,6 +266,9 @@ export default function Shell() {
               </Gated>
             }
           />
+          {/* Public on purpose. The cup is on every page, including the one a
+              visitor sees, and the QR is the reason they tapped it. */}
+          <Route path="/support" element={<SupportView />} />
           {/* AdminView answers anyone who isn't an admin with Not found, the
               same as the API behind it does. */}
           <Route

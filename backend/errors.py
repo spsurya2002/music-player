@@ -1,3 +1,4 @@
+
 """Error sentences (reused verbatim from docs/API.md) and the AppError type
 that the FastAPI exception handler turns into {"error": "..."} responses.
 """
@@ -19,6 +20,8 @@ class AppError(Exception):
 
 MISSING_URL = "Paste an Instagram URL first."
 BAD_URL = "That doesn't look like an Instagram post/reel URL."
+NOT_A_SONG_LINK = "That doesn't look like an Instagram, YouTube, or Spotify song link."
+NOT_ONE_SONG = "Paste one song. Albums, playlists and live streams aren't a single MP3."
 MISSING_TOKEN = "That extraction has expired — paste the link again."
 MISSING_JOB = "That identification has expired — upload the file again."
 MISSING_UPLOAD = "Choose an audio file first."
@@ -124,6 +127,12 @@ CONTACT_CLOSED_TODAY = "The message box has had a busy day — try again tomorro
 CONTACT_MISSING_NAME = "Put your name in, so there's something to reply to you by."
 CONTACT_MISSING_EMAIL = "Leave an email address, or there's no way to write back."
 MISSING_MESSAGE = "That message is already gone."
+
+SUPPORT_TOO_SOON = "That's a few notes already — give it an hour."
+SUPPORT_TOO_MANY = "That's as many notes as one day takes. Try again tomorrow."
+SUPPORT_CLOSED_TODAY = "The note box has had a busy day — try again tomorrow."
+SUPPORT_TOO_SHORT = "Write a note first — two characters at least."
+MISSING_SUPPORT_NOTE = "That note is already gone."
 
 # The About page is one document the admin edits, so these are all about the
 # shape of what the form sent rather than about anything being missing.

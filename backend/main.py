@@ -33,6 +33,7 @@ from backend.routers import (
     rooms,
     shared,
     songs,
+    support,
 )
 from backend.services import about as about_service
 from backend.services import cookies as cookies_service
@@ -66,6 +67,9 @@ app.include_router(feedback.router, prefix="/api")
 # and the box on it has to take a message from someone who will never sign in.
 app.include_router(about.router, prefix="/api")
 app.include_router(contact.router, prefix="/api")
+# /support is public, like /about. The note on it may come from someone
+# who will never sign in, which is why this router takes an optional user.
+app.include_router(support.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
 

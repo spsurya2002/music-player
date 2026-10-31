@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import ConfirmModal from "../components/ConfirmModal";
 import Msg from "../components/Msg";
 import { FEATURES, QuotaMeter, limitsChange } from "../components/Quota";
-import { COFFEE_URL } from "../utils/support";
 import { CoffeeIcon } from "../components/icons";
 import { ChevronIcon } from "../components/icons";
 import { useAuth } from "../context/AuthContext";
@@ -172,16 +172,16 @@ export default function PlanView() {
           and said carefully: a coffee buys nothing. Tying it to the limits
           would make this a shop, and then asking for more would feel like
           being upsold rather than being answered. */}
-      <a className="plan-coffee" href={COFFEE_URL} target="_blank" rel="noopener">
+      <Link className="plan-coffee" to="/support">
         <CoffeeIcon size={20} />
         <span>
           <b>Buy me a coffee</b>
           <span className="plan-coffee-sub">
             Entirely optional, and it changes nothing here — asking for more is free and
-            always will be. It just helps with the bills behind the reels and the readings.
+            always will be. UPI or a card, on the support page.
           </span>
         </span>
-      </a>
+      </Link>
 
       {plan !== "admin" && (
         <div className="card plan-ask">

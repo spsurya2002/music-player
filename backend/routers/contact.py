@@ -47,7 +47,7 @@ DAY = 86400
 _sent: dict[str, list[float]] = {}
 
 
-def _sender_ip(request: Request) -> str:
+def sender_ip(request: Request) -> str:
     """Who to count this against.
 
     The app is served through a Cloudflare tunnel, so request.client.host is
@@ -116,7 +116,7 @@ async def send_contact(body: ContactRequest, request: Request, user: MaybeUser =
     if len(message) < MIN_MESSAGE:
         raise errors.AppError(errors.contact_too_short(MIN_MESSAGE), 400)
 
-    ip = _sender_ip(request)
+    ip = sender_ip(request)
     _check_rate(ip)
 
     since = now().replace(hour=0, minute=0, second=0, microsecond=0)

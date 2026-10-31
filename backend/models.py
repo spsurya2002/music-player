@@ -277,6 +277,18 @@ class RoomCommandRequest(BaseModel):
     restart: bool = False
 
 
+class SupportNoteRequest(BaseModel):
+    """A thank-you left on /support, with or without an account.
+
+    `website` is a honeypot, same as ContactRequest: hidden, so anything in
+    it was filled by something that fills every field it finds. The floor on
+    `message` is checked after trimming, in the router.
+    """
+
+    message: str = Field(default="", max_length=500)
+    website: str = Field(default="", max_length=200)
+
+
 class ContactRequest(BaseModel):
     """Someone writing in from /about — possibly with no account at all.
 

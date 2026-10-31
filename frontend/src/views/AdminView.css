@@ -823,3 +823,31 @@
     flex-basis: 100%;
   }
 }
+
+/* Six tabs don't fit a phone in one row. Wrap them; the Add switch keeps
+   the single-row rule in ModeTabs.css because it doesn't carry this class. */
+@media (max-width: 760px) {
+  .admin-tabs.mode-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .admin-tabs .mode-tab {
+    flex: 1 1 auto;
+  }
+}
+
+.admin-list-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.admin-anon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--field);
+  border: 1px solid var(--line);
+}

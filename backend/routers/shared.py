@@ -200,6 +200,12 @@ async def _existing_copy(song: dict, user_id: str) -> dict | None:
         )
         if hit:
             return hit
+    if song.get("source_url"):
+        hit = await db.songs_col.find_one(
+            {"user_id": user_id, "source_url": song["source_url"]}
+        )
+        if hit:
+            return hit
     if song.get("source") == "upload" and song.get("source_file"):
         return await db.songs_col.find_one(
             {
@@ -237,6 +243,10 @@ async def _copy_song(song: dict, user_id: str) -> str:
     # db.py) and collide with the next upload.
     if not doc.get("instagram_url"):
         doc.pop("instagram_url", None)
+    # Same partial-index trap as instagram_url: a null source_url is one value,
+    # so the second copied reel would collide with the first.
+    if not doc.get("source_url"):
+        doc.pop("source_url", None)
 
     try:
         result = await db.songs_col.insert_one(doc)

@@ -34,6 +34,7 @@ holds_col = None
 requests_col = None
 feedback_col = None
 contact_col = None
+support_notes_col = None
 settings_col = None
 rooms_col = None
 room_members_col = None
@@ -43,7 +44,7 @@ storage: Storage | None = None
 def connect() -> None:
     global client, db, songs_col, playlists_col, users_col, sessions_col, ingest_col, storage
     global holds_col, requests_col, lyrics_col, lyrics_sets_col, feedback_col
-    global contact_col, settings_col, rooms_col, room_members_col
+    global contact_col, support_notes_col, settings_col, rooms_col, room_members_col
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
     songs_col = db["songs"]
@@ -57,6 +58,7 @@ def connect() -> None:
     requests_col = db["limit_requests"]
     feedback_col = db["feedback"]
     contact_col = db["contact_messages"]
+    support_notes_col = db["support_notes"]
     # One document per setting, keyed by a string _id ("about"). Not a
     # config file: these are things the admin changes at runtime, from a
     # form, on an instance nobody is going to redeploy to fix a typo.
@@ -98,6 +100,15 @@ async def _ensure_song_indexes() -> None:
         [("user_id", 1), ("instagram_url", 1)],
         unique=True,
         partialFilterExpression={"instagram_url": {"$type": "string"}},
+    )
+    # Same rule for a YouTube or Spotify link: one row per URL per person, and
+    # only documents that actually have one. Reels and uploads omit the field.
+    await _replace_index(
+        songs_col,
+        "source_url_1",
+        [("user_id", 1), ("source_url", 1)],
+        unique=True,
+        partialFilterExpression={"source_url": {"$type": "string"}},
     )
     # The library list is "this user's songs, newest first" — one index serves it.
     await songs_col.create_index([("user_id", 1), ("created_at", -1)])
@@ -202,6 +213,18 @@ async def _ensure_feedback_indexes() -> None:
     await feedback_col.create_index([("user_id", 1), ("created_at", -1)])
 
 
+async def _ensure_support_note_indexes() -> None:
+    """Notes left on /support (backend/routers/support.py).
+
+    Read across users, by an admin only, so newest-first is the index the
+    tab needs. The per-user one is the daily cap for people who are signed
+    in. A note with no account has no user_id, and that field is omitted
+    rather than stored as null.
+    """
+    await support_notes_col.create_index([("created_at", -1)])
+    await support_notes_col.create_index([("user_id", 1), ("created_at", -1)])
+
+
 async def _ensure_contact_indexes() -> None:
     """Messages sent from the About page (backend/routers/contact.py).
 
@@ -237,6 +260,7 @@ async def create_indexes() -> None:
     await _ensure_lyrics_set_indexes()
     await _ensure_feedback_indexes()
     await _ensure_contact_indexes()
+    await _ensure_support_note_indexes()
     await _ensure_room_indexes()
     await _drop_legacy_indexes()
 

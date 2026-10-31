@@ -20,8 +20,8 @@ const DOORS = [
   {
     to: "/add/reel",
     icon: <LinkIcon size={20} />,
-    title: "Add a reel",
-    line: "Paste an Instagram link and keep the audio.",
+    title: "Add a link",
+    line: "Instagram, YouTube, or Spotify — keep the audio.",
   },
   {
     to: "/add/file",

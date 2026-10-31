@@ -204,10 +204,15 @@ export default function SongDetailView() {
       {/* An upload has no post behind it — the file it came from is the
           equivalent provenance, so show that instead of an empty link. */}
       <div className="detail-section">
-        {song.instagram_url ? (
-          <a href={song.instagram_url} target="_blank" rel="noopener" className="insta-link">
+        {song.instagram_url || song.source_url ? (
+          <a
+            href={song.instagram_url || song.source_url}
+            target="_blank"
+            rel="noopener"
+            className="insta-link"
+          >
             <ExternalLinkIcon size={15} />
-            {song.instagram_url}
+            {song.instagram_url || song.source_url}
           </a>
         ) : (
           <div className="insta-link">

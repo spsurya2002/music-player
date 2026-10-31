@@ -8,6 +8,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import Msg from "../components/Msg";
 import { PlayIcon, PlusIcon, QueueIcon, ShuffleIcon, TrashIcon } from "../components/icons";
 import { songTitle } from "../utils/format";
+import Pager, { PAGE_SIZE, pageCount } from "../components/Pager";
 import "./views.css";
 
 const SORTS = [
@@ -27,6 +28,7 @@ export default function AllSongsView() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") || "";
   const sort = params.get("sort") || "recent";
+  const page = Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1);
 
   const setParam = (key, value) =>
     setParams(
@@ -34,12 +36,23 @@ export default function AllSongsView() {
         const next = new URLSearchParams(prev);
         if (value && !(key === "sort" && value === "recent")) next.set(key, value);
         else next.delete(key);
+        // A new search or sort starts again at the first page.
+        if (key !== "page") next.delete("page");
         return next;
       },
       { replace: true }
     );
 
+  const setPage = (n) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (n <= 1) next.delete("page");
+      else next.set("page", String(n));
+      return next;
+    });
+
   const [songs, setSongs] = useState(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -60,10 +73,22 @@ export default function AllSongsView() {
     setLoading(true);
     const handle = setTimeout(() => {
       api
-        .listSongs({ q: q.trim() || undefined, sort })
+        .listSongs({
+          q: q.trim() || undefined,
+          sort,
+          limit: PAGE_SIZE,
+          skip: (page - 1) * PAGE_SIZE,
+        })
         .then((d) => {
           if (cancelled) return;
+          const count = d.total || 0;
+          const last = pageCount(count);
+          if (page > last) {
+            setPage(last);
+            return;
+          }
           setSongs(d.songs || []);
+          setTotal(count);
           setError("");
         })
         .catch((err) => {
@@ -79,7 +104,7 @@ export default function AllSongsView() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [q, sort]);
+  }, [q, sort, page]);
 
   // Derived, not synced: a search can narrow the list under a selection, and
   // intersecting here means an id for a row that is no longer on screen simply
@@ -90,12 +115,21 @@ export default function AllSongsView() {
     [songs, selectedIds]
   );
 
-  function handleRowPlay(song, index) {
+  // The page is 20 songs. Play still walks the whole library (or the whole
+  // search), which is what Play all meant before the list was split up.
+  async function songsMatching() {
+    const data = await api.listSongs({ q: q.trim() || undefined, sort });
+    return data.songs || [];
+  }
+
+  async function handleRowPlay(song) {
     if (currentSong && currentSong.id === song.id) {
       togglePlay();
       return;
     }
-    playQueue(songs, index);
+    const all = await songsMatching();
+    const at = all.findIndex((s) => s.id === song.id);
+    playQueue(all, at < 0 ? 0 : at);
   }
 
   function toggleSelect(id) {
@@ -112,9 +146,9 @@ export default function AllSongsView() {
     setSelectedIds(new Set());
   }
 
-  function shuffle() {
-    if (!songs?.length) return;
-    const order = [...songs];
+  async function shuffle() {
+    const order = await songsMatching();
+    if (!order.length) return;
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
@@ -182,9 +216,9 @@ export default function AllSongsView() {
       {/* Play all and Shuffle were on both playlist pages and not on the
           library itself, so "play everything I have" was the one thing you
           could not ask for without first picking a song to start from. */}
-      {allShown.length > 0 && (
+      {total > 0 && (
         <div className="library-actions">
-          <button type="button" className="btn small" onClick={() => playQueue(allShown, 0)}>
+          <button type="button" className="btn small" onClick={() => songsMatching().then((all) => all.length && playQueue(all, 0))}>
             <PlayIcon size={15} />
             Play all
           </button>
@@ -202,7 +236,7 @@ export default function AllSongsView() {
             </button>
           )}
           <span className="library-count">
-            {allShown.length} {allShown.length === 1 ? "song" : "songs"}
+            {total} {total === 1 ? "song" : "songs"}
           </span>
         </div>
       )}
@@ -216,7 +250,7 @@ export default function AllSongsView() {
               setSelectedIds(allSelected ? new Set() : new Set(allShown.map((s) => s.id)))
             }
           >
-            {allSelected ? "Clear" : "Select all"}
+            {allSelected ? "Clear" : pageCount(total) > 1 ? "Select page" : "Select all"}
           </button>
           <span className="select-bar-count">
             {selected.length} selected
@@ -274,13 +308,13 @@ export default function AllSongsView() {
             <SongRow
               key={song.id}
               song={song}
-              index={i}
+              index={(page - 1) * PAGE_SIZE + i}
               active={currentSong && currentSong.id === song.id}
               playing={playing}
               selecting={selecting}
               selected={selectedIds.has(song.id)}
               onToggleSelect={() => toggleSelect(song.id)}
-              onPlay={() => handleRowPlay(song, i)}
+              onPlay={() => handleRowPlay(song)}
               onOpen={() => navigate(`/songs/${song.id}`)}
               onAddToQueue={() => addToQueue(song)}
               onAddToPlaylist={() => setAddToPlaylistSongs([song])}
@@ -289,6 +323,8 @@ export default function AllSongsView() {
           ))}
         </div>
       )}
+
+      <Pager page={page} total={total} onPage={setPage} />
 
       {addToPlaylistSongs && (
         <AddToPlaylistModal

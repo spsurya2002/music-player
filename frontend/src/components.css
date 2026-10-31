@@ -193,6 +193,16 @@ input[type="search"] {
   border-color: rgba(247, 103, 7, 0.35);
   color: var(--accent-2);
 }
+.source-tag.youtube {
+  background: rgba(237, 238, 243, 0.08);
+  border-color: rgba(237, 238, 243, 0.28);
+  color: var(--text);
+}
+.source-tag.spotify {
+  background: rgba(55, 178, 77, 0.12);
+  border-color: rgba(55, 178, 77, 0.35);
+  color: var(--ok);
+}
 
 .spin {
   width: 14px;

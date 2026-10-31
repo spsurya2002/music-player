@@ -61,8 +61,12 @@ async def create_song(body: SaveSongRequest, user: CurrentUser):
     # rather than as forbidden — there is nothing to tell them about it.
     saved = await pipeline.save_token(body.token, user.id, body.playlist_id)
     if saved.duplicate:
+        duplicate = {
+            "youtube": "That YouTube video is already in your library.",
+            "spotify": "That Spotify track is already in your library.",
+        }.get(saved.song.get("source"), errors.DUPLICATE_SONG)
         return JSONResponse(
-            status_code=409, content={"error": errors.DUPLICATE_SONG, "song": saved.song}
+            status_code=409, content={"error": duplicate, "song": saved.song}
         )
     return saved.song
 

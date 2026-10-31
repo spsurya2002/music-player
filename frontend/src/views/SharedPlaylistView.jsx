@@ -9,6 +9,7 @@ import QueueButton from "../components/QueueButton";
 import { PlayIcon, PauseIcon, DownloadIcon, CopyIcon, GlobeIcon, MusicIcon } from "../components/icons";
 import { emitPlaylistsChanged } from "../utils/bus";
 import { fmtDur, songTitle } from "../utils/format";
+import Pager, { PAGE_SIZE } from "../components/Pager";
 import "./views.css";
 import Thumb from "../components/Thumb";
 
@@ -29,6 +30,7 @@ export default function SharedPlaylistView() {
   const [copying, setCopying] = useState(false);
   const [copyMsg, setCopyMsg] = useState("");
   const [copyErr, setCopyErr] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +40,7 @@ export default function SharedPlaylistView() {
       .then((d) => {
         if (cancelled) return;
         setPlaylist(d.playlist);
+        setPage(1);
         setSongs(d.songs || []);
         setError("");
       })
@@ -110,6 +113,8 @@ export default function SharedPlaylistView() {
   }
 
   const owner = playlist.owner;
+  const pageStart = (Math.min(page, Math.max(1, Math.ceil(songs.length / PAGE_SIZE))) - 1) * PAGE_SIZE;
+  const visibleSongs = songs.slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <div className="view">
@@ -181,7 +186,8 @@ export default function SharedPlaylistView() {
         <div className="song empty-state">There's nothing in this playlist yet.</div>
       ) : (
         <div className="playlist-song-list">
-          {songs.map((song, i) => {
+          {visibleSongs.map((song, i) => {
+            const index = pageStart + i;
             const active = currentSong && currentSong.id === song.id && isActivePlaylist;
             return (
               <div key={song.id} className="playlist-song-row shared-row">
@@ -189,10 +195,10 @@ export default function SharedPlaylistView() {
                   <button
                     type="button"
                     className="song-row-index"
-                    onClick={() => handleRowPlay(song, i)}
+                    onClick={() => handleRowPlay(song, index)}
                     aria-label={active && playing ? "Pause" : "Play"}
                   >
-                    <span className="idx">{i + 1}</span>
+                    <span className="idx">{index + 1}</span>
                     <span className="ico">
                       {active && playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
                     </span>
@@ -222,6 +228,12 @@ export default function SharedPlaylistView() {
           })}
         </div>
       )}
+
+      <Pager
+        page={Math.min(page, Math.max(1, Math.ceil(songs.length / PAGE_SIZE)))}
+        total={songs.length}
+        onPage={setPage}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import * as api from "../api/client";
 import { usePlayer } from "../context/PlayerContext";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
@@ -15,12 +15,13 @@ import {
   CloseIcon,
   GripIcon,
   DownloadIcon,
-  GlobeIcon,
   LockIcon,
+  UnlockIcon,
   MusicIcon,
 } from "../components/icons";
 import { emitPlaylistsChanged } from "../utils/bus";
 import { fmtDur, songTitle } from "../utils/format";
+import Pager, { PAGE_SIZE } from "../components/Pager";
 import "./views.css";
 import Thumb from "../components/Thumb";
 
@@ -48,6 +49,7 @@ export default function PlaylistDetailView() {
   const [shareBusy, setShareBusy] = useState(false);
 
   const [dragIndex, setDragIndex] = useState(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +60,7 @@ export default function PlaylistDetailView() {
         if (cancelled) return;
         setPlaylist(d.playlist);
         setSongs(d.songs || []);
+        setPage(1);
         setNameDraft(d.playlist.name);
         setError("");
       })
@@ -71,6 +74,9 @@ export default function PlaylistDetailView() {
       cancelled = true;
     };
   }, [id]);
+
+  const pageStart = (Math.min(page, Math.max(1, Math.ceil(songs.length / PAGE_SIZE))) - 1) * PAGE_SIZE;
+  const visibleSongs = songs.slice(pageStart, pageStart + PAGE_SIZE);
 
   const isActivePlaylist = playlist && activePlaylistId === playlist.id;
   const effectiveLoop = isActivePlaylist ? loopMode : playlist?.loop || "off";
@@ -211,6 +217,17 @@ export default function PlaylistDetailView() {
               <button type="button" className="icon-btn" onClick={() => setRenaming(true)} aria-label="Rename">
                 <PencilIcon size={16} />
               </button>
+              <span
+                className={"share-state" + (playlist.is_public ? " on" : "")}
+                title={
+                  playlist.is_public
+                    ? "Shared publicly — anyone signed in can find this, play it and take a copy"
+                    : "Private — only you can see this playlist"
+                }
+                aria-label={playlist.is_public ? "Shared publicly" : "Private"}
+              >
+                {playlist.is_public ? <UnlockIcon size={16} /> : <LockIcon size={16} />}
+              </span>
             </div>
           ) : (
             <form className="row" onSubmit={handleRename}>
@@ -251,37 +268,22 @@ export default function PlaylistDetailView() {
               <TrashIcon size={15} style={{ marginRight: 6 }} />
               Delete playlist
             </button>
+            <button
+              type="button"
+              className={playlist.is_public ? "btn secondary" : "btn"}
+              onClick={() => handleShare(!playlist.is_public)}
+              disabled={shareBusy}
+              title={
+                playlist.is_public
+                  ? "Take this playlist off Shared"
+                  : "Anyone signed in can find this on Shared, play it and take a copy. Your name and picture are shown next to it."
+              }
+            >
+              {shareBusy && <span className="spin" />}
+              {playlist.is_public ? "Stop sharing" : "Share"}
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className={"share-toggle" + (playlist.is_public ? " on" : "")}>
-        <div className="share-toggle-text">
-          <div className="share-toggle-title">
-            {playlist.is_public ? <GlobeIcon size={15} /> : <LockIcon size={15} />}
-            {playlist.is_public ? "Shared publicly" : "Private"}
-          </div>
-          <div className="share-toggle-sub">
-            {playlist.is_public ? (
-              <>
-                Anyone signed in can find this on{" "}
-                <Link to="/">Shared</Link>, play it and take a copy. Your name and
-                picture are shown next to it.
-              </>
-            ) : (
-              "Only you can see this playlist."
-            )}
-          </div>
-        </div>
-        <button
-          type="button"
-          className={playlist.is_public ? "btn secondary" : "btn"}
-          onClick={() => handleShare(!playlist.is_public)}
-          disabled={shareBusy}
-        >
-          {shareBusy && <span className="spin" />}
-          {playlist.is_public ? "Stop sharing" : "Share"}
-        </button>
       </div>
 
       {actionError && <Msg kind="err">{actionError}</Msg>}
@@ -290,16 +292,17 @@ export default function PlaylistDetailView() {
         <div className="song empty-state">No songs here yet — add some from All songs or a song's page.</div>
       ) : (
         <div className="playlist-song-list">
-          {songs.map((song, i) => {
+          {visibleSongs.map((song, i) => {
+            const index = pageStart + i;
             const active = currentSong && currentSong.id === song.id && isActivePlaylist;
             return (
               <div
                 key={song.id}
                 className="playlist-song-row"
                 draggable
-                onDragStart={() => setDragIndex(i)}
+                onDragStart={() => setDragIndex(index)}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(i)}
+                onDrop={() => handleDrop(index)}
                 onDragEnd={() => setDragIndex(null)}
               >
                 <span className="drag-grip">
@@ -309,10 +312,10 @@ export default function PlaylistDetailView() {
                   <button
                     type="button"
                     className="song-row-index"
-                    onClick={() => handleRowPlay(song, i)}
+                    onClick={() => handleRowPlay(song, index)}
                     aria-label={active && playing ? "Pause" : "Play"}
                   >
-                    <span className="idx">{i + 1}</span>
+                    <span className="idx">{index + 1}</span>
                     <span className="ico">{active && playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}</span>
                   </button>
                   <button type="button" className="song-row-main" onClick={() => navigate(`/songs/${song.id}`)}>
@@ -344,6 +347,12 @@ export default function PlaylistDetailView() {
           })}
         </div>
       )}
+
+      <Pager
+        page={Math.min(page, Math.max(1, Math.ceil(songs.length / PAGE_SIZE)))}
+        total={songs.length}
+        onPage={setPage}
+      />
 
       {addToPlaylistSong && <AddToPlaylistModal song={addToPlaylistSong} onClose={() => setAddToPlaylistSong(null)} />}
 

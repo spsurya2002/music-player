@@ -1,8 +1,12 @@
-"""Phase 1 (ephemeral): POST /api/extract, POST /api/match/{token},
-GET /api/preview/{token}, POST /api/search.
+"""Phase 1 (ephemeral): POST /api/extract, GET /api/extract/{job},
+POST /api/match/{token}, GET /api/preview/{token}, POST /api/search.
 
 Nothing here touches the library — extraction lands in the process-memory token
 registry (backend.services.extractor) and only becomes a Song on POST /api/songs.
+The download itself runs on a background thread (backend.services.extract_jobs):
+the tunnel in front of the app drops a request that is still open at 100s, and
+a YouTube conversion takes longer than that. The page polls until the token exists.
+
 The one write is the limit: an extraction that produces an MP3 spends a reel
 use (backend.services.quota); one that fails gives it back.
 """
@@ -15,30 +19,54 @@ from fastapi.responses import FileResponse
 from backend import errors
 from backend.auth import CurrentUser
 from backend.models import ExtractRequest, SearchRequest
-from backend.services import extractor
+from backend.services import extract_jobs, extractor
 from backend.services import identify as identify_service
 from backend.services import pipeline, quota
 
 router = APIRouter(tags=["extract"])
 
 
-@router.post("/extract")
+@router.post("/extract", status_code=202)
 async def do_extract(body: ExtractRequest, user: CurrentUser):
     url = (body.url or "").strip()
     if not url:
-        raise errors.AppError(errors.MISSING_URL, 400)
-    if not extractor.URL_RE.match(url):
-        raise errors.AppError(errors.BAD_URL, 400)
+        raise errors.AppError("Paste an Instagram, YouTube, or Spotify link.", 400)
+    # Classified before the quota hold: a link that isn't one song must not
+    # spend a reel use, and must not start a download.
+    try:
+        source, url = extractor.prepare(url)
+    except extractor.ExtractError as e:
+        raise errors.AppError(e.message, e.status) from e
 
-    url = url.split("?")[0]  # drop tracking params
+    hold = await quota.reserve(user.id, quota.REEL)
+    # The job finishes on its own thread, with its own event loop, and Motor is
+    # bound to this one — so the settlement is handed back here to run.
+    loop = asyncio.get_running_loop()
 
-    async with quota.use(user.id, quota.REEL):
-        try:
-            payload = await extractor.extract(url, user.id)
-        except extractor.ExtractError as e:
-            raise errors.AppError(e.message, e.status) from e
+    def settle(ok: bool) -> None:
+        outcome = quota.settle(hold) if ok else quota.release(hold)
+        asyncio.run_coroutine_threadsafe(outcome, loop)
 
-    return payload
+    try:
+        job_id = extract_jobs.start(url, user.id, source, on_finish=settle)
+    except Exception:
+        await quota.release(hold)
+        raise
+    return {"job": job_id, "state": "running"}
+
+
+@router.get("/extract/{job_id}")
+async def extract_status(job_id: str, user: CurrentUser):
+    job = extract_jobs.get(job_id, user.id)
+    if not job:
+        raise errors.AppError(errors.MISSING_TOKEN, 404)
+    return {
+        "job": job_id,
+        "state": job["state"],
+        "error": job["error"],
+        "status": job["status"],
+        "result": job["result"],
+    }
 
 
 @router.post("/match/{token}")

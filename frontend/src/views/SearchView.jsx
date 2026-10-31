@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/client";
 import Msg from "../components/Msg";
@@ -11,11 +11,13 @@ import "./views.css";
 import Thumb from "../components/Thumb";
 
 const INITIAL_MATCH = null; // { identified, song, results } | { identified: false, reason }
+const POLL_MS = 1500;
 
 export default function SearchView() {
   const [url, setUrl] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState(null); // the ApiError, so a used-up limit can say so
+  const [jobId, setJobId] = useState("");
   const [extracted, setExtracted] = useState(null); // extract() response
 
   const [matching, setMatching] = useState(false);
@@ -42,18 +44,58 @@ export default function SearchView() {
     setSaveMsg(null);
 
     try {
+      // The download keeps going after this returns. Holding the request open
+      // for it is what the tunnel in front of the app kills at 100 seconds,
+      // and that failure looks exactly like the server being down.
       const data = await api.extract(trimmed);
-      setExtracted(data);
-      runMatch(data.token);
+      setJobId(data.job);
     } catch (err) {
       setExtractError(err);
-    } finally {
       setExtracting(false);
-      // A success spent a use and a failure gave it back; either way the
-      // meter below the form has moved.
       emitLimitsChanged();
     }
   }
+
+  useEffect(() => {
+    if (!jobId) return undefined;
+    let cancelled = false;
+    let timer = null;
+
+    async function tick() {
+      try {
+        const data = await api.extractStatus(jobId);
+        if (cancelled) return;
+        if (data.state === "running") {
+          timer = setTimeout(tick, POLL_MS);
+          return;
+        }
+        setJobId("");
+        setExtracting(false);
+        emitLimitsChanged();
+        if (data.state === "done" && data.result) {
+          setExtracted(data.result);
+          runMatch(data.result.token);
+        } else {
+          setExtractError({ message: data.error || "Couldn't pull the audio out of that link.", status: data.status });
+        }
+      } catch (err) {
+        if (cancelled) return;
+        if (err.status === 404) {
+          setJobId("");
+          setExtracting(false);
+          setExtractError({ message: "That extraction has expired — paste the link again.", status: 404 });
+          return;
+        }
+        timer = setTimeout(tick, POLL_MS * 2);
+      }
+    }
+
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [jobId]);
 
   async function runMatch(token) {
     setMatching(true);
@@ -108,8 +150,10 @@ export default function SearchView() {
 
   return (
     <div className="view">
-      <h1 className="page-title">Add a reel</h1>
-      <p className="sub">Paste an Instagram reel or post link — get the audio as MP3.</p>
+      <h1 className="page-title">Add a link</h1>
+      <p className="sub">
+        Paste an Instagram reel, a YouTube video, or a Spotify song — get the audio as MP3.
+      </p>
 
       <AddTabs />
 
@@ -117,8 +161,8 @@ export default function SearchView() {
         <form className="row" onSubmit={handleExtract}>
           <input
             type="url"
-            placeholder="https://www.instagram.com/reel/..."
-            aria-label="Instagram reel link"
+            placeholder="Instagram, YouTube, or Spotify link"
+            aria-label="Instagram, YouTube, or Spotify link"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             autoComplete="off"
@@ -135,10 +179,15 @@ export default function SearchView() {
             )}
           </button>
         </form>
-        <div className="hint">Works with reels, posts and IGTV. Private posts need cookies — see the README.</div>
+        <div className="hint">
+          One song per link. A Spotify link is saved from the matching YouTube recording — Spotify
+          doesn&apos;t hand over the file. Private Instagram posts need cookies — see the README.
+        </div>
         <QuotaNote feature="reel" />
 
-        {extracting && <Msg kind="info">Fetching the post and pulling the audio out…</Msg>}
+        {extracting && (
+          <Msg kind="info">Fetching that link and pulling the audio out. A full song can take a minute.</Msg>
+        )}
         <ErrorMsg error={extractError} />
 
         {extracted && (

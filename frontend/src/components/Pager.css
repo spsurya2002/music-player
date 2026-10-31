@@ -1,0 +1,14 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.pager-label {
+  color: var(--muted);
+  font-size: 12.5px;
+  min-width: 64px;
+  text-align: center;
+}

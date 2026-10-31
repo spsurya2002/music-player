@@ -111,9 +111,32 @@ Tokens are process-memory only and die with a restart. Saved songs are permanent
 ## 1. Extraction (ephemeral)
 
 ### `POST /api/extract`
-Body `{"url": "https://www.instagram.com/reel/..."}`
+Body `{"url": "https://www.instagram.com/reel/..."}` — also a YouTube video
+(`youtube.com/watch`, `youtu.be`, `youtube.com/shorts`, `music.youtube.com`) or
+a Spotify **track** (`open.spotify.com/track/…`, `spotify:track:…`).
 
-200:
+An album, playlist, artist page or live stream is `400` — one link is one MP3.
+A Spotify track is named from Spotify, then the audio is the best matching
+YouTube recording: Spotify does not hand the file over. The stored URL is the
+one that was pasted, so a later save of the same link is a duplicate.
+
+The download does not happen inside this request. A conversion takes longer
+than the tunnel in front of the app will hold a connection open, and a dropped
+connection is what the page used to report as the server being down.
+
+**202** — accepted, not finished:
+```json
+{"job": "hex32", "state": "running"}
+```
+
+### `GET /api/extract/{job}`
+Poll until `state` leaves `running`.
+
+`done`: `{"job", "state": "done", "error": null, "status": null, "result": { …the payload below… }}`
+`error`: `{"job", "state": "error", "error": "a sentence", "status": 502, "result": null}`
+A job that died with the process is `404`.
+
+`result`, once `done`:
 ```json
 {
   "token": "hex32",
@@ -122,13 +145,17 @@ Body `{"url": "https://www.instagram.com/reel/..."}`
   "track": "Track or null",
   "artist": "Artist or null",
   "uploader": "instagram display name",
-  "instagram_url": "the cleaned url that was fetched",
+  "source": "instagram | youtube | spotify",
+  "instagram_url": "the cleaned reel url — omitted for YouTube and Spotify",
+  "source_url": "the YouTube or Spotify url — omitted for a reel",
   "duration": 47,
   "size": 1217531,
   "thumbnail": "https://... or null"
 }
 ```
 4xx/5xx: `{"error": "..."}` — reuse the existing `friendly_error()` sentences.
+A link that isn't one song is `400` (`NOT_A_SONG_LINK` / `NOT_ONE_SONG`) before
+anything is fetched.
 
 **Spends one `reel` use** — only when it returns 200. A failed download gives the use
 back. With none left: `402 {"error": "You've used all 5 of your reel extractions — ask for
@@ -319,9 +346,10 @@ song cannot go missing from it and there is no membership to keep in sync.
   "track": "Track or null",
   "artist": "Artist or null",
   "uploader": "instagram display name",
-  "instagram_url": "https://www.instagram.com/reel/... — null for an upload",
-  "source": "instagram | upload",
-  "source_file": "what you uploaded.mp3 — null for a reel",
+  "instagram_url": "https://www.instagram.com/reel/... — null unless this is a reel",
+  "source_url": "https://www.youtube.com/watch?v=... or a Spotify track — null for a reel or an upload",
+  "source": "instagram | upload | youtube | spotify",
+  "source_file": "what you uploaded.mp3 — null unless this is an upload",
   "thumbnail": "https://... or null",
   "duration": 47,
   "size": 1217531,
@@ -342,17 +370,20 @@ song cannot go missing from it and there is no membership to keep in sync.
 `instagram_url` and `youtube` are kept permanently — requirement: opening a saved song
 must show its YouTube links and the Instagram link it came from.
 
-### Two kinds of song, one collection
+### One collection, four ways in
 
-A song is either a reel extraction (`source: "instagram"`) or an identified upload
-(`source: "upload"`). They sit in the same collection and are otherwise treated
-identically — All songs lists both, the player plays both, and either can go in any
-playlist. The UI tells them apart with a tag: **INSTA** or **MP3**.
+A song is a reel (`source: "instagram"`), an identified upload (`source: "upload"`),
+a YouTube video (`source: "youtube"`) or a Spotify track (`source: "spotify"`).
+They sit in the same collection and are otherwise treated identically — All songs
+lists all of them, the player plays all of them, and any of them can go in any
+playlist. The UI tells them apart with a tag: **INSTA**, **MP3**, **YOUTUBE** or **SPOTIFY**.
 
-An upload **omits `instagram_url` entirely** rather than storing null. The unique index on
-that field is partial (`{"instagram_url": {"$type": "string"}}`), because a plain unique
-index counts every missing field as the same null and the second upload would collide with
-the first. A document with an explicit null would hit that too, so: omit, don't nullify.
+An upload, a YouTube song and a Spotify song **omit `instagram_url`**. A reel and an
+upload **omit `source_url`**. Both unique indexes are partial
+(`{"instagram_url": {"$type": "string"}}`, `{"source_url": {"$type": "string"}}`),
+because a plain unique index counts every missing field as the same null and the
+second upload would collide with the first. A document with an explicit null would
+hit that too, so: omit, don't nullify.
 A song saved before uploads existed has no `source` field; the serializer reads that as
 `"instagram"`.
 
@@ -769,10 +800,11 @@ and the two flags are all the rail needs to leave the entry out.
 Body `{"name": "...", "email": "...", "message": "...", "website": ""}`.
 `201` with `{"sent": true, "message": ContactMessage}`.
 
-**The one route in the app that stores something for a caller with no session.** Section
-2d refuses to for good reason — an unsigned box on the open internet is a spam funnel —
-and this one exists anyway because the people it is for will never sign in to a stranger's
-music app to say hello. So it carries its own defences in place of one:
+**The one route, besides the support note (section 2g), that stores something for a
+caller with no session.** Section 2d refuses to for good reason — an unsigned box on the
+open internet is a spam funnel — and this one exists anyway because the people it is for
+will never sign in to a stranger's music app to say hello. So it carries its own defences
+in place of one:
 
 - **3 an hour and 10 a day per sender**, counted in process memory and keyed on
   `CF-Connecting-IP`, then `X-Forwarded-For`, then the socket. (The app is served through
@@ -798,6 +830,37 @@ switched "off" still filling a collection.
 ```json
 {"id": "hex24", "name": "...", "email": "...", "message": "...",
  "signed_in": false, "created_at": "2026-10-05T09:12:00Z"}
+```
+
+---
+
+## 2g. A note on the support page
+
+`/support` shows a UPI QR and a link out to Buy Me a Coffee. **Neither payment is
+handled here, verified here, or able to move a limit.** The only thing the app stores
+from that page is an optional note.
+
+### `POST /api/support/notes`
+
+Body `{"message": "...", "website": ""}`. `201` with `{"note": SupportNote}`.
+
+No session required. A session is recorded when one is present, so the admin tab can
+show a name; it is not what lets the note through.
+
+- **`website` is a honeypot**, same as section 2f. A filled one gets `{"sent": true}` and
+  is not stored.
+- `message` is trimmed, then must be **at least 2 characters** and at most 500.
+  `400 Write a note first — two characters at least.`
+- **3 an hour and 5 a day per sender**, in process memory, keyed the same way as
+  section 2f (`CF-Connecting-IP`, then `X-Forwarded-For`, then the socket). A signed-in
+  sender is also capped at **5 a day** in Mongo, so a restart does not hand that
+  allowance back. Over either: `429`.
+- **80 a day across everyone.** Over it: `429 The note box has had a busy day — try again
+  tomorrow.`
+
+**SupportNote** (public shape — no account):
+```json
+{"id": "hex24", "message": "...", "created_at": "2026-10-28T09:12:00Z"}
 ```
 
 ---
@@ -1018,7 +1081,7 @@ Admins are named in config (`ADMIN_EMAILS`), not stored — there is no endpoint
 someone one. Every route below answers anyone else with **`404 {"error": "No such
 endpoint."}`**, the same as a path that doesn't exist. These are the one other place
 (besides section 3a) that reads rows belonging to other people, and they read accounts,
-requests, feedback and the About page's postbag only — never a library.
+requests, feedback, support notes and the About page's postbag only — never a library.
 
 **Account** (admin-only shape — unlike a shared playlist's owner, it carries the email):
 ```json
@@ -1122,6 +1185,16 @@ whether this one happens to have.
 
 ### `DELETE /api/admin/contact/{id}`
 `{"deleted": true}`, or `404 That message is already gone.`
+
+### `GET /api/admin/support`
+Notes from `/support` (section 2g), newest first.
+`{"notes": [SupportNote + {"user": Account | null, "signed_in": false}, ...]}`
+
+`user` is null when the sender was signed out. There is no payment on the row: UPI and
+Buy Me a Coffee don't report back, so this list is only the words.
+
+### `DELETE /api/admin/support/{id}`
+`{"deleted": true}`, or `404 That note is already gone.`
 
 ## 3d. Listening rooms
 

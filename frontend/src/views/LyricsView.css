@@ -278,9 +278,8 @@
 }
 
 /* The question a fresh search has to answer before it joins the library.
-   Shaped like .share-toggle in views.css — the same bar of a sentence and the
-   buttons that settle it — and tinted, because unlike that one this is asking
-   rather than reporting. */
+   A bar of a sentence and the buttons that settle it, tinted because this is
+   asking rather than reporting. */
 .lyrics-keep {
   display: flex;
   align-items: center;

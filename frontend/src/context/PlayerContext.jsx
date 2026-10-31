@@ -14,20 +14,29 @@ const PlayerContext = createContext(null);
 
 const LOOP_CYCLE = { off: "all", all: "one", one: "off" };
 
+// The queue and the playhead. The audio element dies with the page, so this is
+// what puts the same song back when you reload. A listening room is left out:
+// its audio URL only works while that room is open.
+const PLAYER_KEY = "reelody.player";
+
 export function PlayerProvider({ children }) {
   const audioRef = useRef(null);
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
   }
 
-  const [queue, setQueue] = useState([]); // array of Song
-  const [currentIndex, setCurrentIndex] = useState(-1);
+  const storedRef = useRef(undefined);
+  if (storedRef.current === undefined) storedRef.current = readStoredPlayer();
+  const stored = storedRef.current;
+
+  const [queue, setQueue] = useState(() => stored?.queue ?? []); // array of Song
+  const [currentIndex, setCurrentIndex] = useState(() => (stored ? stored.index : -1));
   const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(1);
-  const [loopMode, setLoopModeState] = useState("off");
-  const [activePlaylistId, setActivePlaylistId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => stored?.time ?? 0);
+  const [duration, setDuration] = useState(() => stored?.queue?.[stored.index]?.duration || 0);
+  const [volume, setVolumeState] = useState(() => stored?.volume ?? 1);
+  const [loopMode, setLoopModeState] = useState(() => stored?.loop || "off");
+  const [activePlaylistId, setActivePlaylistId] = useState(() => stored?.playlistId ?? null);
   const [queueOpen, setQueueOpen] = useState(false);
   // The YouTube player is always the corner dock. It used to be a modal, which
   // covered the thing you opened it to compare against or read alongside — the
@@ -39,7 +48,12 @@ export function PlayerProvider({ children }) {
   const ytPauseRef = useRef(null);
   const [playerError, setPlayerError] = useState("");
 
-  const lastPlayedRef = useRef(null); // song id we already fired /played for, this "load"
+  // Already counted for this track. A reload is the same listen, not a new one.
+  const lastPlayedRef = useRef(stored ? stored.queue[stored.index]?.id ?? null : null);
+  // Held until the restored file has actually seeked. A later track starts at 0.
+  const resumeAtRef = useRef(stored ? stored.time : null);
+  const resumePlayRef = useRef(Boolean(stored?.playing));
+  const resumeSongIdRef = useRef(stored?.queue?.[stored.index]?.id ?? null);
 
   // A listening room shares this one element. The host publishes what it does;
   // a guest follows the server clock and does not drive it.
@@ -67,7 +81,14 @@ export function PlayerProvider({ children }) {
     if (!audio) return;
     audio.volume = volume;
 
-    const onTime = () => setCurrentTime(audio.currentTime || 0);
+    const onTime = () => {
+      const pending = resumeAtRef.current;
+      const t = audio.currentTime || 0;
+      // Assigning src reports 0 before the saved position can be applied, and
+      // that flash would wipe the bar back to the start of the song.
+      if (pending != null && pending > 0.4 && t + 0.4 < pending) return;
+      setCurrentTime(t);
+    };
     const onLoaded = () => setDuration(audio.duration || 0);
     const onPlay = () => {
       setPlaying(true);
@@ -125,6 +146,9 @@ export function PlayerProvider({ children }) {
           audio.load();
         }
         lastPlayedRef.current = null;
+        resumeAtRef.current = null;
+        resumePlayRef.current = false;
+        clearStoredPlayer();
         setQueue([]);
         setCurrentIndex(-1);
         setPlaying(false);
@@ -148,30 +172,89 @@ export function PlayerProvider({ children }) {
     // so this is the general case, not a special one.
     const src = currentSong.audio_url || api.songAudioUrl(currentSong.id);
     const loaded = trackLoaded(audio, currentSong);
+    // Only the song we reloaded on. The next thing you pick starts clean, at
+    // the beginning, instead of inheriting this position.
+    const restoring =
+      resumeAtRef.current != null &&
+      !roomRoleRef.current &&
+      currentSong.id === resumeSongIdRef.current;
+    if (!restoring && resumeAtRef.current != null && !roomRoleRef.current) {
+      resumeAtRef.current = null;
+      resumePlayRef.current = false;
+    }
     if (!loaded) {
       setPlayerError("");
       // Seed the clock from the saved metadata rather than waiting for
       // loadedmetadata. Otherwise the previous track's duration stays on screen
       // until the new one loads — and stays for good if the load fails.
       const follow = roomRoleRef.current;
-      const startAt = follow ? pendingSeekRef.current || 0 : 0;
+      const startAt = follow ? pendingSeekRef.current || 0 : restoring ? resumeAtRef.current : 0;
       pendingSeekRef.current = null;
       setDuration(currentSong.duration || 0);
       setCurrentTime(startAt);
-      const shouldPlay = follow ? roomPlayingRef.current : true;
-      audio.src = src;
+      const shouldPlay = follow ? roomPlayingRef.current : restoring ? resumePlayRef.current : true;
+      let started = false;
       const onReady = () => {
-        if (roomRoleRef.current) {
+        if (started) return;
+        started = true;
+        // A track change can land before this fires. Seeking then would park
+        // the new song at the old one's position.
+        if (!trackLoaded(audio, currentSong)) return;
+        const begin = () => {
+          if (!follow) resumeAtRef.current = null;
+          if (shouldPlay) audio.play().catch(() => {});
+        };
+        if (startAt > 0.3) {
+          const onSeeked = () => begin();
+          audio.addEventListener("seeked", onSeeked, { once: true });
           try {
             audio.currentTime = startAt;
           } catch {
-            // Metadata arrived without a seekable range yet. The drift tick
-            // pulls a guest back into line once the file will take a seek.
+            // Metadata arrived without a seekable range yet. A room guest is
+            // pulled back into line by the drift tick; a reload just starts
+            // this one from the beginning if the file won't take a seek.
+            audio.removeEventListener("seeked", onSeeked);
+            begin();
+            return;
           }
+          // Already there: seeked will not fire, and waiting would never play.
+          if (Math.abs((audio.currentTime || 0) - startAt) <= 0.4) {
+            audio.removeEventListener("seeked", onSeeked);
+            begin();
+          }
+          return;
         }
-        if (shouldPlay) audio.play().catch(() => {});
+        begin();
       };
+      // Listen first. A cached file fires loadedmetadata inside the src
+      // assignment, and a listener added afterwards never runs — the reload
+      // then starts the song from the beginning.
       audio.addEventListener("loadedmetadata", onReady, { once: true });
+      audio.src = src;
+      if (audio.readyState >= 1) onReady();
+    } else if (restoring) {
+      const at = resumeAtRef.current;
+      const begin = () => {
+        resumeAtRef.current = null;
+        if (resumePlayRef.current && audio.paused) audio.play().catch(() => {});
+        else if (!resumePlayRef.current && !audio.paused) audio.pause();
+      };
+      if (at > 0.3 && Math.abs((audio.currentTime || 0) - at) > 0.4) {
+        const onSeeked = () => begin();
+        audio.addEventListener("seeked", onSeeked, { once: true });
+        try {
+          audio.currentTime = at;
+        } catch {
+          audio.removeEventListener("seeked", onSeeked);
+          return;
+        }
+        if (Math.abs((audio.currentTime || 0) - at) <= 0.4) {
+          audio.removeEventListener("seeked", onSeeked);
+          begin();
+        }
+      } else {
+        begin();
+      }
     } else if (roomRoleRef.current && pendingSeekRef.current != null) {
       const at = pendingSeekRef.current;
       pendingSeekRef.current = null;
@@ -419,7 +502,7 @@ export function PlayerProvider({ children }) {
     if (roomRoleRef.current === "host") sendRef.current({ type: "skip", index });
   }, []);
 
-  const activePlaylistSharedRef = useRef(false);
+  const activePlaylistSharedRef = useRef(Boolean(stored?.shared));
 
   const cycleLoop = useCallback(() => {
     if (roomRoleRef.current === "guest") return;
@@ -831,6 +914,64 @@ export function PlayerProvider({ children }) {
     return () => clearInterval(id);
   }, []);
 
+  // Written on every change of what is playing, and on a short tick for the
+  // playhead — timeupdate is far too chatty for localStorage. A room never
+  // writes: its queue would 404 the moment the room closed, and reloading
+  // should bring back the song you had before you joined.
+  const persistRef = useRef(() => {});
+  persistRef.current = () => {
+    if (roomRoleRef.current) return;
+    const audio = audioRef.current;
+    const src = audio?.src || "";
+    if (src.startsWith("data:")) return;
+    const songs = queueRef.current.map(slimSong).filter(Boolean);
+    const index = currentIndexRef.current;
+    if (!songs.length || index < 0 || index >= songs.length) {
+      clearStoredPlayer();
+      return;
+    }
+    let time = audio && Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    const pending = resumeAtRef.current;
+    if (pending != null && time + 0.4 < pending) time = pending;
+    const playingNow = Boolean(src && audio && !audio.paused);
+    try {
+      localStorage.setItem(
+        PLAYER_KEY,
+        JSON.stringify({
+          queue: songs,
+          index,
+          time,
+          playing: playingNow || Boolean(resumePlayRef.current && pending != null),
+          volume: audio ? audio.volume : 1,
+          loop: loopModeRef.current,
+          playlistId: activePlaylistIdRef.current,
+          shared: Boolean(activePlaylistSharedRef.current),
+        })
+      );
+    } catch {
+      // Storage full, or a private window. This page still plays.
+    }
+  };
+
+  useEffect(() => {
+    persistRef.current();
+  }, [queue, currentIndex, playing, volume, loopMode, activePlaylistId]);
+
+  useEffect(() => {
+    const id = setInterval(() => persistRef.current(), 2000);
+    const flush = () => persistRef.current();
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
+
   const value = useMemo(
     () => ({
       queue,
@@ -915,6 +1056,55 @@ export function usePlayer() {
   const ctx = useContext(PlayerContext);
   if (!ctx) throw new Error("usePlayer must be used within a PlayerProvider");
   return ctx;
+}
+
+function slimSong(song) {
+  if (!song || typeof song.id !== "string" || !song.id) return null;
+  const audio = typeof song.audio_url === "string" ? song.audio_url : "";
+  if (audio.includes("/api/rooms/")) return null;
+  return {
+    id: song.id,
+    title: song.title || "",
+    track: song.track || "",
+    artist: song.artist || "",
+    uploader: song.uploader || "",
+    thumbnail: song.thumbnail || "",
+    duration: Number(song.duration) || 0,
+    audio_url: audio,
+    shared: Boolean(song.shared),
+  };
+}
+
+function readStoredPlayer() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAYER_KEY) || "null");
+    if (!raw || !Array.isArray(raw.queue)) return null;
+    const queue = raw.queue.map(slimSong).filter(Boolean);
+    if (!queue.length) return null;
+    const index = Math.max(0, Math.min(Number(raw.index) || 0, queue.length - 1));
+    const time = Number(raw.time);
+    const volume = Number(raw.volume);
+    return {
+      queue,
+      index,
+      time: Number.isFinite(time) ? Math.max(0, time) : 0,
+      playing: Boolean(raw.playing),
+      volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1,
+      loop: raw.loop === "all" || raw.loop === "one" ? raw.loop : "off",
+      playlistId: typeof raw.playlistId === "string" ? raw.playlistId : null,
+      shared: Boolean(raw.shared),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredPlayer() {
+  try {
+    localStorage.removeItem(PLAYER_KEY);
+  } catch {
+    // A private window has no store to clear.
+  }
 }
 
 function positionMs(audioOrSeconds) {

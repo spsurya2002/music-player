@@ -144,9 +144,10 @@ New, built from the same recipes:
   · overflow menu. Hover reveals the play button over the index and lifts with `--hover`.
   The row currently playing shows its title in `--accent`.
 - **SourceTag** — `.source-tag`, the badge pill in tinted-surface form: **INSTA** in
-  `--accent`, **MP3** in `--accent-2`, both `rgba(…,.12)` fill + `rgba(…,.35)` border.
-  It states where a song came from, so it never uses the score colours — a tag is not a
-  rating. Sits in the song row and beside the title on the song page.
+  `--accent`, **MP3** in `--accent-2`, **YOUTUBE** in `--text`, **SPOTIFY** in `--ok`,
+  each `rgba(…,.12)` fill + `rgba(…,.35)` border. It states where a song came from, so
+  it never uses the score colours — a tag is not a rating. Sits in the song row and
+  beside the title on the song page.
 - **ModeTabs** — `.mode-tabs`, the `.loop-toggle` pill scaled up to navigation size. Add
   music owned this and was its only caller; both of its inputs are rail rows now, so the
   Requests / Users switch on Admin is the one thing left that needs it. The file kept the
@@ -163,13 +164,13 @@ New, built from the same recipes:
   page a shared one adds a small accent `globe · Shared` line; on the Shared page it adds
   an 18px avatar and `Shared by <first name>` (or `Shared by you`) instead. Same card,
   because they are the same object and shouldn't drift apart.
-- **ShareToggle** — `.share-toggle`, a full-width block under the playlist actions: a
-  `globe`/`lock` icon and state word on the left, one button on the right. Private is a
-  plain `--card` block with the primary button ("Share"); shared tints to
-  `rgba(214,51,108,.08)` with an accent border, an accent title, and a secondary button
-  ("Stop sharing") — turning something off is never the loud action. The sub-line spells
-  out what public means, including that your name and picture are shown, because a
-  sharing switch that doesn't say what it exposes isn't consent.
+- **Share** — on your own playlist page, a button in `.detail-actions` immediately after
+  Delete playlist. Private uses the primary button ("Share"); shared uses a secondary
+  button ("Stop sharing") — turning something off is never the loud action. The button's
+  title says what public means, including that your name and picture are shown, because a
+  sharing switch that doesn't say what it exposes isn't consent. The state itself sits
+  next to the rename pencil: `.share-state` is a closed lock in `--muted` while private,
+  and an open lock in `--accent` once shared. It is a mark, not a second control.
 - **Home** — the only ungated route, and it does different work depending on who is here,
   which is what "signed out is a state of the app" means in practice.
   `.home-hero` opens it: greeting as the `h1`, then one paragraph at a 62ch measure. A

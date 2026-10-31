@@ -258,6 +258,14 @@ export const LockIcon = (p) => (
   </Svg>
 );
 
+// Same body as LockIcon; the shackle stops short so it reads as open.
+export const UnlockIcon = (p) => (
+  <Svg {...p}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" />
+    <path d="M8 10.5V7.5a4 4 0 017.6-1.6" />
+  </Svg>
+);
+
 export const CopyIcon = (p) => (
   <Svg {...p}>
     <rect x="9" y="9" width="11" height="11" rx="2" />
@@ -398,6 +406,14 @@ export const CoffeeIcon = (p) => (
     <path d="M4 9h12v6a4 4 0 01-4 4H8a4 4 0 01-4-4V9z" />
     <path d="M16 11h2a2.5 2.5 0 010 5h-2" />
     <path d="M8 3v2.5M12 3v2.5" />
+  </Svg>
+);
+
+// Three finder squares. Used only to open the UPI code on the support page.
+export const QrIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" />
+    <path d="M14 14h2.5v2.5H14zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
   </Svg>
 );
 

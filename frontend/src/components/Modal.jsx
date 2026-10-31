@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { CloseIcon } from "./icons";
 import "./Modal.css";
 
-export default function Modal({ title, onClose, children, width = 440 }) {
+export default function Modal({ title, onClose, children, width = 440, className = "" }) {
   const backdropRef = useRef(null);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export default function Modal({ title, onClose, children, width = 440 }) {
 
   return (
     <div
-      className="modal-backdrop"
+      className={"modal-backdrop" + (className ? " " + className : "")}
       ref={backdropRef}
       onMouseDown={(e) => {
         if (e.target === backdropRef.current) onClose();

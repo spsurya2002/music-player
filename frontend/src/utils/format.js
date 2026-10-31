@@ -28,8 +28,17 @@ export function badgeClass(score) {
 
 export function songTitle(song) {
   if (!song) return "";
-  if (song.track && song.artist) return `${song.artist} — ${song.track}`;
-  if (song.track) return song.track;
+  const track = (song.track || "").trim();
+  const artist = (song.artist || "").trim();
+  if (track && artist) {
+    const lead = artist.toLowerCase();
+    const body = track.toLowerCase();
+    // A YouTube title often already starts with the channel name, and putting
+    // the artist in front of it again reads as the name twice.
+    if (body === lead || body.startsWith(`${lead} -`) || body.startsWith(`${lead} —`)) return track;
+    return `${artist} — ${track}`;
+  }
+  if (track) return track;
   return song.title || "Untitled";
 }
 

@@ -102,6 +102,10 @@ export function extract(url) {
   return request("/extract", { method: "POST", body: { url } });
 }
 
+export function extractStatus(jobId) {
+  return request(`/extract/${jobId}`);
+}
+
 export function matchToken(token) {
   return request(`/match/${token}`, { method: "POST" });
 }
@@ -613,4 +617,16 @@ export function adminListContact() {
 
 export function adminDeleteContact(id) {
   return request(`/admin/contact/${id}`, { method: "DELETE" });
+}
+
+export function sendSupportNote({ message, website = "" }) {
+  return request("/support/notes", { method: "POST", body: { message, website } });
+}
+
+export function adminListSupportNotes() {
+  return request("/admin/support");
+}
+
+export function adminDeleteSupportNote(id) {
+  return request(`/admin/support/${id}`, { method: "DELETE" });
 }

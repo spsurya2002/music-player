@@ -24,6 +24,7 @@ def song_to_dict(doc: dict, playlist_ids: list[str] | None = None) -> dict:
         "artist": doc.get("artist"),
         "uploader": doc.get("uploader"),
         "instagram_url": doc.get("instagram_url"),
+        "source_url": doc.get("source_url"),
         # Songs saved before uploads existed carry no source field and are all
         # reels, so the absent case reads as "instagram" rather than unknown.
         "source": doc.get("source") or "instagram",
@@ -326,6 +327,16 @@ def about_admin_to_dict(doc: dict | None) -> dict:
         for link in ((doc or {}).get("links") or [])
     ]
     return out
+
+
+def support_note_to_dict(doc: dict) -> dict:
+    """One note from /support. No account on it — the admin route attaches
+    that when the sender happened to be signed in."""
+    return {
+        "id": str(doc["_id"]),
+        "message": doc.get("message") or "",
+        "created_at": iso(doc.get("created_at")),
+    }
 
 
 def contact_to_dict(doc: dict) -> dict:

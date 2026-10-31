@@ -8,7 +8,6 @@ import Brand from "./Brand";
 import FeedbackModal from "./FeedbackModal";
 import Menu from "./Menu";
 import Thumb from "./Thumb";
-import { COFFEE_URL } from "../utils/support";
 import {
   CoffeeIcon,
   FeedbackIcon,
@@ -161,16 +160,10 @@ function AccountMenu({ user, isAdmin, quota, badges, about, onSignOut, onFeedbac
           </button>
           {/* The rail's foot carries this too, and is gone on phones — which is
               the width where this menu is the only way to either of them. */}
-          <a
-            href={COFFEE_URL}
-            target="_blank"
-            rel="noopener"
-            role="menuitem"
-            onClick={close}
-          >
+          <Link to="/support" role="menuitem" onClick={close}>
             <CoffeeIcon size={16} />
             Buy me a coffee
-          </a>
+          </Link>
           <button
             type="button"
             className="danger"

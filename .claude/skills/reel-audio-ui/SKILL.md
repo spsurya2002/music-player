@@ -54,6 +54,7 @@ frontend/         Vite + React 19, plain JSX, hand-written CSS
   src/components/SignInPrompt.jsx  what a signed-out visitor gets in place of a view
   src/views/SharedPlaylistView.jsx  one of them, read-only: play it or copy it
   src/views/PlanView.jsx         your limits, the Free/More tiers, asking for more
+  src/views/SupportView.jsx      /support — UPI QR, a Buy Me a Coffee link, an optional note
   src/views/AdminView.jsx        requests and everyone's limits — admins only
   src/components/Quota.jsx       QuotaNote, QuotaMeter, ErrorMsg (402 -> "Ask for more")
   src/components/FeedbackModal.jsx  rating + a box; opened from the rail's foot and
@@ -132,10 +133,14 @@ this file is the orientation.
    file died with the process. A path that ends without saving — a duplicate, a failure —
    must still `extractor.discard()` the token, or it leaks an MP3 into `downloads/` that
    nobody is watching for.
-12. **One `songs` collection holds both kinds.** A reel (`source: "instagram"`) and an
-   uploaded file (`source: "upload"`) differ only in provenance; All songs lists both, the
-   player plays both, any playlist takes either. The UI separates them with a tag —
-   INSTA / MP3 — not with separate libraries or a default "Uploads" playlist.
+12. **One `songs` collection holds every kind.** A reel (`source: "instagram"`), an
+   uploaded file (`source: "upload"`), a YouTube video (`source: "youtube"`) and a
+   Spotify track (`source: "spotify"`) differ only in provenance; All songs lists all
+   of them, the player plays all of them, any playlist takes any of them. The UI
+   separates them with a tag — INSTA / MP3 / YOUTUBE / SPOTIFY — not with separate
+   libraries. A YouTube or Spotify song stores `source_url` and omits `instagram_url`.
+   Spotify audio is not downloaded from Spotify; the MP3 is the matching YouTube
+   recording, and the saved URL is the Spotify link that was pasted.
 
 ## Signed out is a state of the app, not a different app
 
@@ -162,6 +167,9 @@ is the only place that explanation can still reach you.
    with `quota: "reel" | "file"`, and the frontend keys on the status to offer `/plan`.
    Admins (`ADMIN_EMAILS`, config not data) are never refused; admin routes 404 for
    everyone else. No payment exists anywhere — more is asked for and granted by hand.
+   `/support` shows a UPI QR and a link out to Buy Me a Coffee. Neither is verified
+   here, and neither moves a limit. The cup, the account menu and Plan all open
+   that page; they do not leave the app on their own.
 
 ## Gotchas that have already bitten
 

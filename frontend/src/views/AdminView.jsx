@@ -7,6 +7,7 @@ import { FEATURES, limitsChange } from "../components/Quota";
 import ConfirmModal from "../components/ConfirmModal";
 import {
   ChevronIcon,
+  CoffeeIcon,
   FeedbackIcon,
   MailIcon,
   PencilIcon,
@@ -46,6 +47,7 @@ export default function AdminView() {
   const [pendingCount, setPendingCount] = useState(null);
   const [feedbackCount, setFeedbackCount] = useState(null);
   const [messageCount, setMessageCount] = useState(null);
+  const [supportCount, setSupportCount] = useState(null);
 
   if (!isAdmin) {
     return (
@@ -61,10 +63,11 @@ export default function AdminView() {
       <h1 className="page-title">Admin</h1>
       <p className="sub">
         Answer requests for more, change anyone's limits, read what people think of the
-        app, and write the About page. Limits are lifetime totals.
+        app, read notes from the support page, and write the About page. Limits are
+        lifetime totals.
       </p>
 
-      <div className="mode-tabs" role="tablist">
+      <div className="mode-tabs admin-tabs" role="tablist">
         <button
           type="button"
           role="tab"
@@ -113,6 +116,16 @@ export default function AdminView() {
           Messages
           {messageCount > 0 && <span className="admin-count">{messageCount}</span>}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "support"}
+          className={"mode-tab" + (tab === "support" ? " active" : "")}
+          onClick={() => setTab("support")}
+        >
+          Support
+          {supportCount > 0 && <span className="admin-count">{supportCount}</span>}
+        </button>
       </div>
 
       {tab === "requests" && <RequestsTab onPendingCount={setPendingCount} />}
@@ -120,6 +133,7 @@ export default function AdminView() {
       {tab === "feedback" && <FeedbackTab onCount={setFeedbackCount} />}
       {tab === "about" && <AboutTab />}
       {tab === "messages" && <MessagesTab onCount={setMessageCount} />}
+      {tab === "support" && <SupportTab onCount={setSupportCount} />}
     </div>
   );
 }
@@ -1735,6 +1749,114 @@ function MessagesTab({ onCount }) {
         <ConfirmModal
           title="Delete message"
           message={`Delete what ${deleting.name} wrote? They won't be told, and there's no copy.`}
+          confirmLabel="Delete"
+          onConfirm={remove}
+          onClose={() => setDeleting(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// ---- Notes from /support -----------------------------------------------------
+
+// Words only. A payment never arrives here, so the tab doesn't pretend to be
+// a ledger — there is nothing to reconcile and nobody to write back to.
+
+function SupportTab({ onCount }) {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.adminListSupportNotes();
+      setRows(data.notes || []);
+      setError("");
+      onCount((data.notes || []).length);
+    } catch (err) {
+      setError(err.message || "Could not read the notes.");
+    }
+  }, [onCount]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function remove() {
+    const row = deleting;
+    setDeleting(null);
+    try {
+      await api.adminDeleteSupportNote(row.id);
+      setRows((current) => current.filter((r) => r.id !== row.id));
+      onCount((rows || []).length - 1);
+    } catch (err) {
+      setError(err.message || "Could not delete that.");
+    }
+  }
+
+  return (
+    <>
+      <div className="card admin-list">
+        <div className="admin-list-head">
+          <span className="admin-list-title">
+            {rows ? `${rows.length} ${rows.length === 1 ? "note" : "notes"}` : "Support"}
+          </span>
+          <span className="admin-list-sub">Notes only — a payment never shows up here.</span>
+        </div>
+
+        {error && <Msg kind="err">{error}</Msg>}
+
+        {rows === null && !error && (
+          <div className="admin-empty">
+            <span className="spin" />
+            Reading notes…
+          </div>
+        )}
+
+        {rows && rows.length === 0 && (
+          <div className="admin-empty">
+            <CoffeeIcon size={26} />
+            <div>No notes yet.</div>
+            <div className="admin-empty-sub">
+              The box is on the support page, next to the code. Anyone can leave one.
+            </div>
+          </div>
+        )}
+
+        {rows &&
+          rows.map((n) => (
+            <div key={n.id} className="admin-row">
+              <div className="admin-row-main">
+                {n.user ? <Avatar user={n.user} size={34} /> : <span className="admin-anon" />}
+                <div className="admin-row-body">
+                  <div className="admin-row-top">
+                    <span className="admin-name">
+                      {n.user?.name || (n.signed_in ? "Deleted account" : "No account")}
+                    </span>
+                    <span className="admin-time">{ago(n.created_at)}</span>
+                  </div>
+                  {n.user?.email && <div className="admin-email">{n.user.email}</div>}
+                  <div className="admin-row-message full">{n.message}</div>
+                </div>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setDeleting(n)}
+                  aria-label="Delete this note"
+                  title="Delete this note"
+                >
+                  <TrashIcon size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {deleting && (
+        <ConfirmModal
+          title="Delete note"
+          message={`Delete what ${deleting.user?.name || "this person"} wrote? They won't be told, and there's no copy.`}
           confirmLabel="Delete"
           onConfirm={remove}
           onClose={() => setDeleting(null)}

@@ -1,5 +1,5 @@
 flask>=3.0
-yt-dlp>=2025.1.1
+yt-dlp>=2026.10.26
 shazamio>=0.8
 secretstorage>=3.3 ; sys_platform == "linux"
 fastapi>=0.115

@@ -51,15 +51,50 @@ async def match_token(token: str, user_id: str) -> dict:
     if not job:
         raise errors.AppError(errors.MISSING_TOKEN, 404)
 
-    jar = await asyncio.to_thread(cookies_service.cookiejar)
-    song = await asyncio.to_thread(
-        identify_service.identify, job["info"], job["path"], job.get("url", ""), jar
-    )
+    source = job.get("source") or "instagram"
+    meta = job.get("meta") or {}
+    if source == "spotify" and meta.get("track"):
+        # The link already named the song. Fingerprinting the YouTube recording
+        # we saved it from can only disagree, and the page should say Spotify.
+        song = {
+            "track": meta.get("track"),
+            "artist": meta.get("artist") or "",
+            "source": "Spotify",
+            "confidence": "high",
+        }
+    elif source == "youtube":
+        # The video already has a name. Fingerprinting the whole file here
+        # holds another request open long enough for the tunnel to drop it,
+        # and the page already has the MP3 either way.
+        if meta.get("track"):
+            song = {
+                "track": meta.get("track"),
+                "artist": meta.get("artist") or "",
+                "source": "YouTube",
+                "confidence": "high",
+            }
+        elif meta.get("title"):
+            song = {
+                "track": meta.get("title"),
+                "artist": meta.get("uploader") or "",
+                "source": "YouTube",
+                "confidence": "low",
+            }
+        else:
+            song = await asyncio.to_thread(identify_service.from_fingerprint, job["path"])
+    else:
+        jar = await asyncio.to_thread(cookies_service.cookiejar)
+        song = await asyncio.to_thread(
+            identify_service.identify, job["info"], job["path"], job.get("url", ""), jar
+        )
 
     if not song or not song.get("track"):
-        hint = NO_MATCH_HINT
-        if not COOKIES_FILE.exists() and not INSTA_COOKIES_BROWSER:
-            hint += COOKIES_HINT
+        if source == "instagram":
+            hint = NO_MATCH_HINT
+            if not COOKIES_FILE.exists() and not INSTA_COOKIES_BROWSER:
+                hint += COOKIES_HINT
+        else:
+            hint = "The audio didn't match a known recording. Search for it by name below."
         result = {"identified": False, "reason": hint}
         extractor.set_match(token, result)
         return result
@@ -94,8 +129,8 @@ async def playlist_ids_for(song_id: str, user_id: str) -> list[str]:
     ]
 
 
-async def _existing(url: str, user_id: str) -> Saved | None:
-    doc = await db.songs_col.find_one({"instagram_url": url, "user_id": user_id})
+async def _existing(url: str, user_id: str, field: str = "instagram_url") -> Saved | None:
+    doc = await db.songs_col.find_one({field: url, "user_id": user_id})
     if not doc:
         return None
     playlist_ids = await playlist_ids_for(str(doc["_id"]), user_id)
@@ -128,7 +163,9 @@ async def save_token(token: str, user_id: str, playlist_id: str | None = None) -
     if not job:
         raise errors.AppError(errors.MISSING_TOKEN, 404)
 
-    found = await _existing(job["url"], user_id)
+    source = job.get("source") or (job.get("meta") or {}).get("source") or "instagram"
+    url_field = "instagram_url" if source == "instagram" else "source_url"
+    found = await _existing(job["url"], user_id, url_field)
     if found:
         return found
 
@@ -151,6 +188,8 @@ async def save_token(token: str, user_id: str, playlist_id: str | None = None) -
         confidence = None
         youtube = []
         thumbnail = meta.get("thumbnail")
+    if not youtube and job.get("origin_youtube"):
+        youtube = [job["origin_youtube"]]
 
     file_id = await db.storage.put_file(job["path"], meta["filename"])
     ts = now()
@@ -160,8 +199,8 @@ async def save_token(token: str, user_id: str, playlist_id: str | None = None) -
         "track": track,
         "artist": artist,
         "uploader": meta.get("uploader"),
-        "instagram_url": job["url"],
-        "source": "instagram",
+        "source": source,
+        url_field: job["url"],
         "thumbnail": thumbnail,
         "duration": meta.get("duration"),
         "size": meta.get("size"),
@@ -182,7 +221,7 @@ async def save_token(token: str, user_id: str, playlist_id: str | None = None) -
         await db.storage.delete_file(file_id)
         # A racing duplicate insert (unique index on user_id + instagram_url) —
         # treat like the normal dedup path instead of surfacing a raw Mongo error.
-        found = await _existing(job["url"], user_id)
+        found = await _existing(job["url"], user_id, url_field)
         if found:
             return found
         raise

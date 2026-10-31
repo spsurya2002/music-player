@@ -1,13 +1,13 @@
-/* Where "buy me a coffee" goes.
+/* Where support lives.
  *
- * One constant rather than three copies of a URL, because it appears at the
- * foot of the rail, in the account menu (which is the rail's stand-in on
- * phones) and on the Plan page.
- *
- * It is a link out and nothing more: no payment is handled here, no account is
- * involved, and nothing that happens on the other side changes a limit or
- * unlocks anything. That is the whole design — the limits move when the admin
- * moves them, by hand, and a page that took money for them would be a
- * different app with different obligations.
+ * The cup, the account menu and the Plan page all open /support. The Buy Me
+ * a Coffee URL is only used there, as a link someone chooses to follow.
+ * Nothing here takes a payment, and nothing that happens on the other side
+ * changes a limit. Those still move when an admin moves them, by hand.
  */
 export const COFFEE_URL = "https://buymeacoffee.com/spsuryamisz";
+
+/* Printed under the QR as well as baked into the image, so the id can be
+   copied when a camera won't focus. */
+export const UPI_ID = "8303767590@pthdfc";
+export const UPI_NAME = "Surya Prakash Mishra";

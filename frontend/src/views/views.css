@@ -596,50 +596,18 @@
   cursor: default;
 }
 
-/* The share switch on your own playlist page. */
-.share-toggle {
-  display: flex;
+/* Private vs shared, sitting next to the rename pencil. A status, not a control —
+   the Share button in .detail-actions is what changes it. */
+.share-state {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--card);
-  margin-top: 18px;
-}
-
-.share-toggle.on {
-  border-color: rgba(214, 51, 108, 0.4);
-  background: rgba(214, 51, 108, 0.08);
-}
-
-.share-toggle-text {
-  min-width: 0;
-  flex: 1;
-}
-
-.share-toggle-title {
-  font-size: 13.5px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.share-toggle.on .share-toggle-title {
-  color: var(--accent);
-}
-
-.share-toggle-sub {
-  font-size: 12.5px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   color: var(--muted);
-  margin-top: 3px;
+  flex: none;
 }
 
-@media (max-width: 480px) {
-  .share-toggle {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
+.share-state.on {
+  color: var(--accent);
 }
